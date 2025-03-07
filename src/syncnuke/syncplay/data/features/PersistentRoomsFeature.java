@@ -6,22 +6,22 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
- * Represents the chat feature in Syncplay.
+ * Represents the persistent rooms feature in Syncplay.
  * <p>
- * This feature allows the client to send and receive chat messages.
- * If supported, the server will broadcast chat messages to all clients in the same room.
+ * This feature allows rooms to persist even when all clients leave.
+ * Persistent rooms remain available for clients to join until they are explicitly deleted.
  * </p>
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client can send and receive chat messages.</li>
- *     <li>If supported = false → Chat functionality is disabled.</li>
+ *     <li>If supported = true → The client supports persistent rooms.</li>
+ *     <li>If supported = false → The client does not support persistent rooms.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "chat": {
+ *   "persistentRooms": {
  *     "supported": true
  *   }
  * }
@@ -31,6 +31,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class ChatFeature extends Feature {
+public class PersistentRoomsFeature extends Feature {
     private boolean supported;
 }

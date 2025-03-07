@@ -6,22 +6,21 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
- * Represents the chat feature in Syncplay.
+ * Represents the feature list support in Syncplay.
  * <p>
- * This feature allows the client to send and receive chat messages.
- * If supported, the server will broadcast chat messages to all clients in the same room.
+ * This feature allows the client to process and respond to a list of available features.
  * </p>
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client can send and receive chat messages.</li>
- *     <li>If supported = false → Chat functionality is disabled.</li>
+ *     <li>If supported = true → The client can process feature lists from the server.</li>
+ *     <li>If supported = false → The client cannot handle feature lists.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "chat": {
+ *   "featureList": {
  *     "supported": true
  *   }
  * }
@@ -31,6 +30,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class ChatFeature extends Feature {
+public class FeatureListFeature extends Feature {
     private boolean supported;
 }
