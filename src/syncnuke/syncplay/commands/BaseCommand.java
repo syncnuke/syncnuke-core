@@ -4,20 +4,19 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.SyncplayClient;
-import syncnuke.syncplay.data.HelloData;
+import syncnuke.syncplay.data.BaseData;
 
 @Slf4j
 @AllArgsConstructor
-public class HelloCommand {
+public class BaseCommand {
     private SyncplayClient client;
 
-    public void execute(String username, String room) {
-        HelloData data = new HelloData(username, room);
+    public void execute(BaseData data) {
         try {
-            log.atInfo().log("Sending HelloData: {}", data.serialize());
+            log.atInfo().log("Sending data: {}", data.serialize());
             client.send(data.serialize());
         } catch (JsonProcessingException e) {
-            log.atError().log("Failed to serialize HelloData: {}", e.getMessage());
+            log.atError().log("Failed to serialize data: {}", e.getMessage());
             throw new RuntimeException(e);
         }
     }

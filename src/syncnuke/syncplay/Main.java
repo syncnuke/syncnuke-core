@@ -1,13 +1,15 @@
 package syncnuke.syncplay;
 
-import syncnuke.syncplay.commands.HelloCommand;
+import syncnuke.syncplay.commands.BaseCommand;
+import syncnuke.syncplay.data.HelloData;
 
 public class Main {
 
     public static void main(String[] args) {
         SyncplayClient client = new SyncplayClient();
-        HelloCommand helloCommand = new HelloCommand(client);
-        helloCommand.execute("user", "room");
+        HelloData data = new HelloData("user", "room");
+        BaseCommand command = new BaseCommand(client);
+        command.execute(data);
     }
 
 }
