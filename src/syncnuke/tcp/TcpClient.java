@@ -34,8 +34,8 @@ public class TcpClient {
             try {
                 String line;
                 while ((line = reader.readLine()) != null) {
-                    log.info("Server response: {}", line);
-                    // TODO: handle message from server
+                    log.debug("Server response: {}", line);
+                    handleResponse(line);
                 }
             } catch (IOException e) {
                 log.error("Connection closed: {}", e.getMessage());
@@ -45,7 +45,7 @@ public class TcpClient {
 
     public void send(String data) {
         try {
-            log.info("Sending: {}", data);
+            log.debug("Sending: {}", data);
             writer.write(data);
             writer.newLine();
             writer.flush();

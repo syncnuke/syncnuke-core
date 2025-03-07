@@ -13,10 +13,10 @@ public class BaseCommand {
 
     public void execute(BaseData data) {
         try {
-            log.atInfo().log("Sending data: {}", data.serialize());
+            log.info("Sending data: {}", data.serialize());
             client.send(data.serialize());
         } catch (JsonProcessingException e) {
-            log.atError().log("Failed to serialize data: {}", e.getMessage());
+            log.error("Failed to serialize data: {}", e.getMessage());
             throw new RuntimeException(e);
         }
     }
