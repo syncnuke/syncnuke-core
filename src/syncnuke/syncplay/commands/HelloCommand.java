@@ -13,7 +13,6 @@ public class HelloCommand {
 
     public void execute(String username, String room) {
         HelloData data = new HelloData(username, room);
-        // send data serialized using jackson
         try {
             log.atInfo().log("Sending HelloData: {}", data.serialize());
             client.send(data.serialize());
