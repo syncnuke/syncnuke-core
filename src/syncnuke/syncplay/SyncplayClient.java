@@ -118,7 +118,7 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void keepAlive() {
-        StateData stateData = new StateData(0, true, false, state.getCurrentFile());
+        StateData stateData = new StateData(0, true, false, username, state.getCurrentFile());
         BaseCommand stateCommand = new BaseCommand(this);
         stateCommand.execute(stateData);
     }
