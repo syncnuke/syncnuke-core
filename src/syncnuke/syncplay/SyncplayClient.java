@@ -1,9 +1,10 @@
 package syncnuke.syncplay;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.BaseCommand;
-import syncnuke.syncplay.data.HelloData;
-import syncnuke.syncplay.data.StateData;
+import syncnuke.syncplay.data.*;
 import syncnuke.tcp.TcpClient;
 
 import java.util.concurrent.Executors;
@@ -16,7 +17,11 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
+    private final ClientState state = new ClientState();
+
     private boolean loggedIn = false;
+    private String username;
+    private String room;
 
     public SyncplayClient() {
         super(SERVER_HOST, SERVER_PORT);
@@ -31,6 +36,8 @@ public class SyncplayClient extends TcpClient {
 
     public void login(String username, String room) {
         logout();
+        this.username = username;
+        this.room = room;
         BaseCommand command = new BaseCommand(this);
         command.execute(new HelloData(username, room));
         loggedIn = true;
@@ -40,10 +47,78 @@ public class SyncplayClient extends TcpClient {
     @Override
     protected void handleResponse(String line) {
         log.debug("Server response: {}", line);
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(line);
+
+            if (jsonNode.has("State")) {
+                StateData stateData = mapper.treeToValue(jsonNode.get("State"), StateData.class);
+                handleStateUpdate(stateData);
+            } else if (jsonNode.has("Set")) {
+                SetData setData = mapper.treeToValue(jsonNode.get("Set"), SetData.class);
+                handleSetUpdate(setData);
+            }
+        } catch (Exception e) {
+            log.error("Failed to parse server response: {}", e.getMessage());
+        }
+    }
+
+    private void handleStateUpdate(StateData stateData) {
+        state.updateState(
+                stateData.getPlaystate().getPosition(),
+                stateData.getPlaystate().isPaused(),
+                stateData.getPlaystate().isDoSeek()
+        );
+
+        if (stateData.getFile() != null) {
+            state.updateFile(stateData.getFile());
+            log.info("New file loaded: {}", stateData.getFile().getName());
+        }
+
+        log.debug("State updated - Position: {}, Paused: {}", state.getPosition(), state.isPaused());
+    }
+
+    private void handleSetUpdate(SetData setData) {
+        log.info("Server set data: {}", setData);
+        FileData file = getFile(setData);
+        if (file != null) {
+            state.updateFile(file);
+            acknowledgeFile();
+            log.info("File set by server: {}", file.getName());
+        }
+    }
+
+    private FileData getFile(SetData setData) {
+        if (setData.getUsers() == null || setData.getUsers().isEmpty()) {
+            return null;
+        }
+        FileData file = null;
+
+        for (String user : setData.getUsers().keySet()) {
+            if (user.equals(username)) {
+                continue;
+            }
+            UserData userData = setData.getUsers().get(user);
+            if (userData != null && userData.getFile() != null) {
+                file = userData.getFile();
+                break;
+            }
+        }
+        return file;
+    }
+
+    private void acknowledgeFile() {
+        if (state.hasFile()) {
+            BaseCommand command = new BaseCommand(this);
+            SetData setData = new SetData();
+            setData.setFile(state.getCurrentFile());
+            command.execute(setData);
+            log.info("Acknowledged file: {}", setData.getFile());
+        }
     }
 
     private void keepAlive() {
-        StateData stateData = new StateData(0, true, false);
+        StateData stateData = new StateData(0, true, false, state.getCurrentFile());
         BaseCommand stateCommand = new BaseCommand(this);
         stateCommand.execute(stateData);
     }
