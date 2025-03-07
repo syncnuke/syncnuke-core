@@ -6,9 +6,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class BaseData {
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    BaseData() {
+    static {
         objectMapper.enable(SerializationFeature.WRAP_ROOT_VALUE);
     }
 
