@@ -6,6 +6,8 @@ import syncnuke.syncplay.data.HelloData;
 import syncnuke.syncplay.data.StateData;
 import syncnuke.tcp.TcpClient;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -13,15 +15,17 @@ public class SyncplayClient extends TcpClient {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8999;
 
+    private final ScheduledExecutorService scheduler;
     private boolean loggedIn = false;
 
     public SyncplayClient() {
         super(SERVER_HOST, SERVER_PORT);
+        scheduler = Executors.newScheduledThreadPool(1);
     }
 
     private void logout() {
         if (loggedIn) {
-            getScheduler().shutdown();
+            scheduler.shutdown();
         }
     }
 
@@ -37,7 +41,7 @@ public class SyncplayClient extends TcpClient {
     private void startStateUpdates() {
         StateData stateData = new StateData(0, true, false);
         BaseCommand stateCommand = new BaseCommand(this);
-        getScheduler().scheduleAtFixedRate(() -> {
+        scheduler.scheduleAtFixedRate(() -> {
             stateCommand.execute(stateData);
         }, 0, 5, TimeUnit.SECONDS);
     }

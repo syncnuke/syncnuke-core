@@ -1,30 +1,25 @@
 package syncnuke.tcp;
 
-import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.*;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
-@Data
 @Slf4j
 public class TcpClient {
 
     private final Socket socket;
     private final BufferedWriter writer;
     private final BufferedReader reader;
-    private final ScheduledExecutorService scheduler;
-    private ExecutorService executor;
+    private final ExecutorService executor;
 
     public TcpClient(String host, int port) {
         try {
             socket = new Socket(host, port);
             writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            scheduler = Executors.newScheduledThreadPool(1);
             executor = Executors.newSingleThreadExecutor();
             startListening();
         } catch (IOException e) {
@@ -63,7 +58,6 @@ public class TcpClient {
     public void close() {
         try {
             socket.close();
-            scheduler.shutdown();
         } catch (IOException e) {
             log.error("Failed to close connection: {}", e.getMessage());
         }
