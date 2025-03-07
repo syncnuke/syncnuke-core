@@ -3,6 +3,7 @@ package syncnuke.syncplay;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.BaseCommand;
 import syncnuke.syncplay.data.HelloData;
+import syncnuke.syncplay.data.StateData;
 import syncnuke.tcp.TcpClient;
 
 import java.util.concurrent.TimeUnit;
@@ -29,5 +30,16 @@ public class SyncplayClient extends TcpClient {
         BaseCommand command = new BaseCommand(this);
         command.execute(new HelloData(username, room));
         loggedIn = true;
+        startStateUpdates();
     }
+
+    // Send state updates every 5 seconds
+    private void startStateUpdates() {
+        StateData stateData = new StateData(0, true, false);
+        BaseCommand stateCommand = new BaseCommand(this);
+        getScheduler().scheduleAtFixedRate(() -> {
+            stateCommand.execute(stateData);
+        }, 0, 5, TimeUnit.SECONDS);
+    }
+
 }
