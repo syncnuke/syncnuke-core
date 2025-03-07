@@ -37,13 +37,20 @@ public class SyncplayClient extends TcpClient {
         startStateUpdates();
     }
 
-    // Send state updates every 5 seconds
-    private void startStateUpdates() {
+    @Override
+    protected void handleResponse(String line) {
+        log.debug("Server response: {}", line);
+    }
+
+    private void keepAlive() {
         StateData stateData = new StateData(0, true, false);
         BaseCommand stateCommand = new BaseCommand(this);
-        scheduler.scheduleAtFixedRate(() -> {
-            stateCommand.execute(stateData);
-        }, 0, 5, TimeUnit.SECONDS);
+        stateCommand.execute(stateData);
+    }
+
+    // Send state updates every 5 seconds
+    private void startStateUpdates() {
+        scheduler.scheduleAtFixedRate(this::keepAlive, 0, 5, TimeUnit.SECONDS);
     }
 
 }

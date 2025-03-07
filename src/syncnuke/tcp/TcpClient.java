@@ -8,7 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Slf4j
-public class TcpClient {
+public abstract class TcpClient {
 
     private final Socket socket;
     private final BufferedWriter writer;
@@ -42,6 +42,8 @@ public class TcpClient {
             }
         });
     }
+
+    protected abstract void handleResponse(String line);
 
     public void send(String data) {
         try {
