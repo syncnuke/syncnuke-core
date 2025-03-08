@@ -119,6 +119,7 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void keepAlive() {
+        // TODO: Find a way to stay in sync with the server without being kicked (probably requires keeping track of timers)
         StateData stateData = new StateData(
                 state.getPosition(),
                 state.isPaused(),
