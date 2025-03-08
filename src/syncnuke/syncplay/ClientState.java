@@ -1,9 +1,13 @@
 package syncnuke.syncplay;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import syncnuke.syncplay.data.FileData;
 
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class ClientState {
 
     private FileData currentFile;

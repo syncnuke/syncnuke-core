@@ -17,7 +17,7 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
-    private final ClientState state = new ClientState();
+    private final ClientState state;
 
     private boolean loggedIn = false;
     private String username;
@@ -26,6 +26,7 @@ public class SyncplayClient extends TcpClient {
     public SyncplayClient() {
         super(SERVER_HOST, SERVER_PORT);
         scheduler = Executors.newScheduledThreadPool(1);
+        state = new ClientState(null, 0, true, false);
     }
 
     private void logout() {
@@ -79,7 +80,7 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void handleSetUpdate(SetData setData) {
-        log.info("Server set data: {}", setData);
+        log.debug("Server set data: {}", setData);
         FileData file = getFile(setData);
         if (file != null) {
             state.updateFile(file);
@@ -118,7 +119,13 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void keepAlive() {
-        StateData stateData = new StateData(0, true, false, username, state.getCurrentFile());
+        StateData stateData = new StateData(
+                state.getPosition(),
+                state.isPaused(),
+                state.isDoSeek(),
+                username,
+                state.getCurrentFile()
+        );
         BaseCommand stateCommand = new BaseCommand(this);
         stateCommand.execute(stateData);
     }
