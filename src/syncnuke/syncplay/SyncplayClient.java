@@ -18,6 +18,7 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
+    private final BaseCommand command = new BaseCommand(this);
     private final PlaybackState state;
 
     private boolean loggedIn = false;
@@ -40,7 +41,6 @@ public class SyncplayClient extends TcpClient {
         logout();
         this.username = username;
         this.room = room;
-        BaseCommand command = new BaseCommand(this);
         command.execute(new HelloData(username, room));
         loggedIn = true;
         startStateUpdates();
@@ -65,6 +65,9 @@ public class SyncplayClient extends TcpClient {
         }
     }
 
+    /**
+     * Processes a 'State' command from the server.
+     */
     private void handleStateUpdate(StateData stateData) {
         state.updateState(
                 stateData.getPlaystate().getPosition(),
@@ -80,6 +83,9 @@ public class SyncplayClient extends TcpClient {
         log.debug("State updated - Position: {}, Paused: {}", state.getPosition(), state.isPaused());
     }
 
+    /**
+     * Processes a 'Set' command from the server.
+     */
     private void handleSetUpdate(SetData setData) {
         log.debug("Server set data: {}", setData);
         FileData file = getFile(setData);
@@ -92,16 +98,19 @@ public class SyncplayClient extends TcpClient {
 
     private FileData getFile(SetData setData) {
         if (setData.getUsers() == null || setData.getUsers().isEmpty()) {
+            // No user information available
             return null;
         }
         FileData file = null;
 
         for (String user : setData.getUsers().keySet()) {
             if (user.equals(username)) {
+                // Ignore 'Set' updates sent by this client
                 continue;
             }
             UserData userData = setData.getUsers().get(user);
             if (userData != null && userData.getFile() != null) {
+                // A user has sent a 'Set' command with file metadata
                 file = userData.getFile();
                 break;
             }
@@ -111,7 +120,6 @@ public class SyncplayClient extends TcpClient {
 
     private void acknowledgeFile() {
         if (state.hasFile()) {
-            BaseCommand command = new BaseCommand(this);
             SetData setData = new SetData();
             setData.setFile(state.getCurrentFile());
             command.execute(setData);
@@ -128,8 +136,7 @@ public class SyncplayClient extends TcpClient {
                 username,
                 state.getCurrentFile()
         );
-        BaseCommand stateCommand = new BaseCommand(this);
-        stateCommand.execute(stateData);
+        command.execute(stateData);
     }
 
     // Send state updates every 5 seconds
