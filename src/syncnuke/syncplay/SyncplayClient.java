@@ -1,6 +1,5 @@
 package syncnuke.syncplay;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.data.*;
 import syncnuke.syncplay.extractor.FileDataExtractor;
@@ -121,8 +120,8 @@ public class SyncplayClient extends KeepAliveClient {
         try {
             log.info("Sending data: {}", data.serialize());
             send(data.serialize());
-        } catch (JsonProcessingException e) {
-            log.error("Failed to serialize data: {}", e.getMessage());
+        } catch (SerializationException e) {
+            log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);
         }
     }

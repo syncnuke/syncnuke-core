@@ -12,8 +12,12 @@ public class BaseData {
         objectMapper.enable(SerializationFeature.WRAP_ROOT_VALUE);
     }
 
-    public String serialize() throws JsonProcessingException {
-        return objectMapper.writeValueAsString(this);
+    public String serialize() {
+        try {
+            return objectMapper.writeValueAsString(this);
+        } catch (JsonProcessingException e) {
+            throw new SerializationException(e);
+        }
     }
 
 }
