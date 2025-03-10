@@ -29,4 +29,8 @@ public class PlaybackState {
         return currentFile != null;
     }
 
+    public void clearSeek() {
+        this.doSeek = false;
+    }
+
 }

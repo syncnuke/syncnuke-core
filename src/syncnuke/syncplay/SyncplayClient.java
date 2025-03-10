@@ -83,7 +83,27 @@ public class SyncplayClient extends KeepAliveClient {
             log.info("New file loaded: {}", stateData.getFile().getName());
         }
 
+        // Handle seeking
+        if (stateData.getPlaystate().isDoSeek()) {
+            log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
+            state.setPosition(stateData.getPlaystate().getPosition());
+            acknowledgeSeek();
+        }
+
         log.debug("State updated - Position: {}, Paused: {}", state.getPosition(), state.isPaused());
+    }
+
+    private void acknowledgeSeek() {
+        StateData stateData = new StateData(
+                state.getPosition(),
+                state.isPaused(),
+                false,
+                username,
+                state.getCurrentFile()
+        );
+        send(stateData);
+        state.clearSeek();
+        log.debug("Seek acknowledged at position: {}", state.getPosition());
     }
 
     /**
@@ -111,10 +131,13 @@ public class SyncplayClient extends KeepAliveClient {
     @Override
     protected void keepAlive() {
         // TODO: Find a way to stay in sync with the server without being kicked (probably requires keeping track of timers)
+        if (state.isDoSeek()) {
+            return;
+        }
         StateData stateData = new StateData(
                 state.getPosition(),
                 state.isPaused(),
-                state.isDoSeek(),
+                false,
                 username,
                 state.getCurrentFile()
         );
