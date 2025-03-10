@@ -20,10 +20,10 @@ public class SyncplayClient extends TcpClient {
 
     private final ScheduledExecutorService scheduler;
     private final DataProcessor dataProcessor;
-    private final PlaybackState state;
-
     private FileDataExtractor fileDataExtractor;
+
     private boolean loggedIn = false;
+    private final PlaybackState state;
     private String username;
     private String room;
 
