@@ -1,10 +1,9 @@
 package syncnuke.syncplay;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.BaseCommand;
 import syncnuke.syncplay.data.*;
+import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.DataProcessor;
 import syncnuke.tcp.TcpClient;
@@ -24,6 +23,7 @@ public class SyncplayClient extends TcpClient {
     private final PlaybackState state;
     private final DataProcessor dataProcessor = new DataProcessor();
 
+    private FileDataExtractor fileDataExtractor;
     private boolean loggedIn = false;
     private String username;
     private String room;
@@ -44,6 +44,7 @@ public class SyncplayClient extends TcpClient {
         logout();
         this.username = username;
         this.room = room;
+        fileDataExtractor = new FileDataExtractor(username);
         command.execute(new HelloData(username, room));
         loggedIn = true;
         startStateUpdates();
@@ -91,34 +92,12 @@ public class SyncplayClient extends TcpClient {
      */
     private void handleSetUpdate(SetData setData) {
         log.debug("Server set data: {}", setData);
-        FileData file = getFile(setData);
+        FileData file = fileDataExtractor.extract(setData);
         if (file != null) {
             state.updateFile(file);
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
         }
-    }
-
-    private FileData getFile(SetData setData) {
-        if (setData.getUsers() == null || setData.getUsers().isEmpty()) {
-            // No user information available
-            return null;
-        }
-        FileData file = null;
-
-        for (String user : setData.getUsers().keySet()) {
-            if (user.equals(username)) {
-                // Ignore 'Set' updates sent by this client
-                continue;
-            }
-            UserData userData = setData.getUsers().get(user);
-            if (userData != null && userData.getFile() != null) {
-                // A user has sent a 'Set' command with file metadata
-                file = userData.getFile();
-                break;
-            }
-        }
-        return file;
     }
 
     private void acknowledgeFile() {
