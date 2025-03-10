@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.BaseCommand;
 import syncnuke.syncplay.data.*;
 import syncnuke.syncplay.state.PlaybackState;
+import syncnuke.tcp.DataProcessor;
 import syncnuke.tcp.TcpClient;
 
 import java.util.concurrent.Executors;
@@ -20,6 +21,7 @@ public class SyncplayClient extends TcpClient {
     private final ScheduledExecutorService scheduler;
     private final BaseCommand command = new BaseCommand(this);
     private final PlaybackState state;
+    private final DataProcessor dataProcessor = new DataProcessor();
 
     private boolean loggedIn = false;
     private String username;
@@ -50,14 +52,11 @@ public class SyncplayClient extends TcpClient {
     protected void handleResponse(String line) {
         log.debug("Server response: {}", line);
         try {
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode jsonNode = mapper.readTree(line);
+            BaseData data = dataProcessor.get(line);
 
-            if (jsonNode.has("State")) {
-                StateData stateData = mapper.treeToValue(jsonNode.get("State"), StateData.class);
+            if (data instanceof StateData stateData) {
                 handleStateUpdate(stateData);
-            } else if (jsonNode.has("Set")) {
-                SetData setData = mapper.treeToValue(jsonNode.get("Set"), SetData.class);
+            } else if (data instanceof SetData setData) {
                 handleSetUpdate(setData);
             }
         } catch (Exception e) {
