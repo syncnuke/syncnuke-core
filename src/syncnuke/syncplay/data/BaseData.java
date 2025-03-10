@@ -12,6 +12,9 @@ public class BaseData {
         objectMapper.enable(SerializationFeature.WRAP_ROOT_VALUE);
     }
 
+    /**
+     * @return The serialized JSON representation of this object
+     */
     public String serialize() {
         try {
             return objectMapper.writeValueAsString(this);
