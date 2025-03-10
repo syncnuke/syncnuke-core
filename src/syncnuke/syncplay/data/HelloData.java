@@ -25,6 +25,7 @@ public class HelloData extends BaseData {
     @JsonProperty("realversion")
     private String realVersion = "1.3.0"; // Actual Syncplay version
     private Map<String, Object> features;
+    private String motd;
 
     public HelloData(String username, String room) {
         super();
