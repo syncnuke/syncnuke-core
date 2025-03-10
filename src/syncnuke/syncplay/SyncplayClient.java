@@ -46,7 +46,7 @@ public class SyncplayClient extends KeepAliveClient {
         send(new HelloData(username, room));
         loggedIn = true;
         // Send state updates every 5 seconds
-        startKeepAlive(5);
+        startKeepAlive(1);
     }
 
     @Override
