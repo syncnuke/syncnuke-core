@@ -1,7 +1,7 @@
 package syncnuke.syncplay.extractor;
 
 import syncnuke.syncplay.data.FileData;
-import syncnuke.syncplay.data.SetData;
+import syncnuke.syncplay.data.commands.SetData;
 import syncnuke.syncplay.data.UserData;
 
 public class FileDataExtractor implements Extractor<SetData, FileData> {

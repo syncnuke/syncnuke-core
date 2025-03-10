@@ -3,6 +3,7 @@ package syncnuke.syncplay.data;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import syncnuke.syncplay.data.exception.SerializationException;
 
 public class BaseData {
 

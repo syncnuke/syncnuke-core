@@ -1,4 +1,4 @@
-package syncnuke.syncplay.data;
+package syncnuke.syncplay.data.exception;
 
 public class SerializationException extends RuntimeException {
 

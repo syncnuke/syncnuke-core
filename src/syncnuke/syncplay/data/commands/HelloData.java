@@ -1,4 +1,4 @@
-package syncnuke.syncplay.data;
+package syncnuke.syncplay.data.commands;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRootName;
@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import syncnuke.syncplay.data.BaseData;
+import syncnuke.syncplay.data.RoomData;
 import syncnuke.syncplay.data.features.ReadinessFeature;
 import syncnuke.syncplay.data.features.UiModeFeature;
 
