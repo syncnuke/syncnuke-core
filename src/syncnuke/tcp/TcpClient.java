@@ -8,7 +8,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Slf4j
-public abstract class TcpClient {
+public abstract class TcpClient implements Closeable {
 
     private final Socket socket;
     private final BufferedWriter writer;
@@ -57,6 +57,7 @@ public abstract class TcpClient {
         }
     }
 
+    @Override
     public void close() {
         try {
             socket.close();
