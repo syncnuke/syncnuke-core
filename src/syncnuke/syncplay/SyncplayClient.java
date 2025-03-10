@@ -22,10 +22,10 @@ public class SyncplayClient extends TcpClient {
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
 
-    private boolean loggedIn = false;
     private final PlaybackState state;
+
+    private boolean loggedIn = false;
     private String username;
-    private String room;
 
     public SyncplayClient(DataProcessor dataProcessor) {
         super(SERVER_HOST, SERVER_PORT);
@@ -43,7 +43,6 @@ public class SyncplayClient extends TcpClient {
     public void login(String username, String room) {
         logout();
         this.username = username;
-        this.room = room;
         fileDataExtractor = new FileDataExtractor(username);
         send(new HelloData(username, room));
         loggedIn = true;
