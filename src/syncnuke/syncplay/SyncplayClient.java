@@ -45,7 +45,6 @@ public class SyncplayClient extends KeepAliveClient {
         fileDataExtractor = new FileDataExtractor(username);
         send(new HelloData(username, room));
         loggedIn = true;
-        // Send state updates every 5 seconds
         startKeepAlive(1);
     }
 
@@ -90,7 +89,31 @@ public class SyncplayClient extends KeepAliveClient {
             acknowledgeSeek();
         }
 
-        log.debug("State updated - Position: {}, Paused: {}", state.getPosition(), state.isPaused());
+        if (stateData.getIgnoringOnTheFly() != null) {
+            stateData.getIgnoringOnTheFly().setClient(1);
+            stateData.getIgnoringOnTheFly().setServer(1);
+        }
+
+        acknowledgeState();
+    }
+
+    private void acknowledgeState() {
+        StateData stateData = new StateData(
+                state.getPosition(),
+                state.isPaused(),
+                false,
+                username,
+                state.getCurrentFile()
+        );
+
+        stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
+        stateData.getPing().setClientRtt(state.getPosition());
+
+        stateData.getIgnoringOnTheFly().setClient(1);
+        stateData.getIgnoringOnTheFly().setServer(1);
+
+        send(stateData);
+        log.debug("State acknowledged at position: {}", state.getPosition());
     }
 
     private void acknowledgeSeek() {
@@ -130,10 +153,16 @@ public class SyncplayClient extends KeepAliveClient {
 
     @Override
     protected void keepAlive() {
-        // TODO: Find a way to stay in sync with the server without being kicked (probably requires keeping track of timers)
         if (state.isDoSeek()) {
             return;
         }
+
+        long now = System.currentTimeMillis();
+        if (!state.isPaused()) {
+            state.updatePosition();
+        }
+        state.setLastUpdateTime(now);
+
         StateData stateData = new StateData(
                 state.getPosition(),
                 state.isPaused(),
@@ -141,6 +170,9 @@ public class SyncplayClient extends KeepAliveClient {
                 username,
                 state.getCurrentFile()
         );
+
+        stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
+
         send(stateData);
     }
 
