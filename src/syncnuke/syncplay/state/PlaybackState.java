@@ -48,4 +48,14 @@ public class PlaybackState {
         position += elapsedSeconds * playbackRate;
     }
 
+    public double getPosition() {
+        if (position > currentFile.getDuration()) {
+            // Stop playback at end of file
+            position = currentFile.getDuration();
+            paused = true;
+            doSeek = false;
+        }
+        return position;
+    }
+
 }
