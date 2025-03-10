@@ -6,19 +6,15 @@ import syncnuke.syncplay.data.*;
 import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.DataProcessor;
-import syncnuke.tcp.TcpClient;
+import syncnuke.tcp.KeepAliveClient;
 
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class SyncplayClient extends TcpClient {
+public class SyncplayClient extends KeepAliveClient {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8999;
 
-    private final ScheduledExecutorService scheduler;
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
 
@@ -30,13 +26,12 @@ public class SyncplayClient extends TcpClient {
     public SyncplayClient(DataProcessor dataProcessor) {
         super(SERVER_HOST, SERVER_PORT);
         this.dataProcessor = dataProcessor;
-        scheduler = Executors.newScheduledThreadPool(1);
         state = new PlaybackState(null, 0, true, false);
     }
 
     private void logout() {
         if (loggedIn) {
-            scheduler.shutdown();
+            stopKeepAlive();
         }
     }
 
@@ -46,7 +41,8 @@ public class SyncplayClient extends TcpClient {
         fileDataExtractor = new FileDataExtractor(username);
         send(new HelloData(username, room));
         loggedIn = true;
-        startStateUpdates();
+        // Send state updates every 5 seconds
+        startKeepAlive(5);
     }
 
     @Override
@@ -108,7 +104,8 @@ public class SyncplayClient extends TcpClient {
         }
     }
 
-    private void keepAlive() {
+    @Override
+    protected void keepAlive() {
         // TODO: Find a way to stay in sync with the server without being kicked (probably requires keeping track of timers)
         StateData stateData = new StateData(
                 state.getPosition(),
@@ -118,11 +115,6 @@ public class SyncplayClient extends TcpClient {
                 state.getCurrentFile()
         );
         send(stateData);
-    }
-
-    // Send state updates every 5 seconds
-    private void startStateUpdates() {
-        scheduler.scheduleAtFixedRate(this::keepAlive, 0, 5, TimeUnit.SECONDS);
     }
 
     public void send(BaseData data) {
