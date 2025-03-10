@@ -19,16 +19,17 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
+    private final DataProcessor dataProcessor;
     private final PlaybackState state;
-    private final DataProcessor dataProcessor = new DataProcessor();
 
     private FileDataExtractor fileDataExtractor;
     private boolean loggedIn = false;
     private String username;
     private String room;
 
-    public SyncplayClient() {
+    public SyncplayClient(DataProcessor dataProcessor) {
         super(SERVER_HOST, SERVER_PORT);
+        this.dataProcessor = dataProcessor;
         scheduler = Executors.newScheduledThreadPool(1);
         state = new PlaybackState(null, 0, true, false);
     }
