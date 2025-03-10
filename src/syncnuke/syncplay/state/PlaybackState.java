@@ -1,4 +1,4 @@
-package syncnuke.syncplay;
+package syncnuke.syncplay.state;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,7 +8,7 @@ import syncnuke.syncplay.data.FileData;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class ClientState {
+public class PlaybackState {
 
     private FileData currentFile;
     private double position;
@@ -28,4 +28,5 @@ public class ClientState {
     public boolean hasFile() {
         return currentFile != null;
     }
+
 }

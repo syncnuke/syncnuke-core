@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.BaseCommand;
 import syncnuke.syncplay.data.*;
+import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.TcpClient;
 
 import java.util.concurrent.Executors;
@@ -17,7 +18,7 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
-    private final ClientState state;
+    private final PlaybackState state;
 
     private boolean loggedIn = false;
     private String username;
@@ -26,7 +27,7 @@ public class SyncplayClient extends TcpClient {
     public SyncplayClient() {
         super(SERVER_HOST, SERVER_PORT);
         scheduler = Executors.newScheduledThreadPool(1);
-        state = new ClientState(null, 0, true, false);
+        state = new PlaybackState(null, 0, true, false);
     }
 
     private void logout() {
