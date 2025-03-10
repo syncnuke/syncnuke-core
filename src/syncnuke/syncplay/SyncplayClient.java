@@ -1,7 +1,7 @@
 package syncnuke.syncplay;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import lombok.extern.slf4j.Slf4j;
-import syncnuke.syncplay.commands.BaseCommand;
 import syncnuke.syncplay.data.*;
 import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.syncplay.state.PlaybackState;
@@ -19,7 +19,6 @@ public class SyncplayClient extends TcpClient {
     private static final int SERVER_PORT = 8999;
 
     private final ScheduledExecutorService scheduler;
-    private final BaseCommand command = new BaseCommand(this);
     private final PlaybackState state;
     private final DataProcessor dataProcessor = new DataProcessor();
 
@@ -45,7 +44,7 @@ public class SyncplayClient extends TcpClient {
         this.username = username;
         this.room = room;
         fileDataExtractor = new FileDataExtractor(username);
-        command.execute(new HelloData(username, room));
+        send(new HelloData(username, room));
         loggedIn = true;
         startStateUpdates();
     }
@@ -104,7 +103,7 @@ public class SyncplayClient extends TcpClient {
         if (state.hasFile()) {
             SetData setData = new SetData();
             setData.setFile(state.getCurrentFile());
-            command.execute(setData);
+            send(setData);
             log.info("Acknowledged file: {}", setData.getFile());
         }
     }
@@ -118,12 +117,22 @@ public class SyncplayClient extends TcpClient {
                 username,
                 state.getCurrentFile()
         );
-        command.execute(stateData);
+        send(stateData);
     }
 
     // Send state updates every 5 seconds
     private void startStateUpdates() {
         scheduler.scheduleAtFixedRate(this::keepAlive, 0, 5, TimeUnit.SECONDS);
+    }
+
+    public void send(BaseData data) {
+        try {
+            log.info("Sending data: {}", data.serialize());
+            send(data.serialize());
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize data: {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
 }

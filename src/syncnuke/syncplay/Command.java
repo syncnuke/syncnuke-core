@@ -1,4 +1,4 @@
-package syncnuke.syncplay.commands;
+package syncnuke.syncplay;
 
 import lombok.Getter;
 import syncnuke.syncplay.data.BaseData;
