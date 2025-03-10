@@ -1,7 +1,8 @@
 package syncnuke.syncplay;
 
 import lombok.extern.slf4j.Slf4j;
-import syncnuke.syncplay.data.*;
+import syncnuke.syncplay.data.BaseData;
+import syncnuke.syncplay.data.FileData;
 import syncnuke.syncplay.data.commands.HelloData;
 import syncnuke.syncplay.data.commands.SetData;
 import syncnuke.syncplay.data.commands.StateData;
