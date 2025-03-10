@@ -14,16 +14,14 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client supports persistent rooms.</li>
- *     <li>If supported = false → The client does not support persistent rooms.</li>
+ *     <li>If persistentRooms = true → The client supports persistent rooms.</li>
+ *     <li>If persistentRooms = false → The client does not support persistent rooms.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "persistentRooms": {
- *     "supported": true
- *   }
+ *   "persistentRooms": true
  * }
  * </pre>
  */
@@ -32,5 +30,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class PersistentRoomsFeature extends Feature {
-    private boolean supported;
+    private boolean persistentRooms;
 }

@@ -13,16 +13,14 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client can process feature lists from the server.</li>
- *     <li>If supported = false → The client cannot handle feature lists.</li>
+ *     <li>If featureList = true → The client can process feature lists from the server.</li>
+ *     <li>If featureList = false → The client cannot handle feature lists.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "featureList": {
- *     "supported": true
- *   }
+ *   "featureList": true
  * }
  * </pre>
  */
@@ -31,5 +29,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class FeatureListFeature extends Feature {
-    private boolean supported;
+    private boolean featureList;
 }

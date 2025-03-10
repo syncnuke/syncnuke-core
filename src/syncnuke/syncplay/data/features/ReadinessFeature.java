@@ -14,15 +14,15 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client supports readiness state.</li>
- *     <li>If supported = false → The client does not support readiness state.</li>
+ *     <li>If readiness = true → The client supports readiness state.</li>
+ *     <li>If readiness = false → The client does not support readiness state.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
  *   "readiness": {
- *     "supported": true
+ *     "readiness": true
  *   }
  * }
  * </pre>
@@ -32,5 +32,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class ReadinessFeature extends Feature {
-    private boolean supported;
+    private boolean readiness;
 }

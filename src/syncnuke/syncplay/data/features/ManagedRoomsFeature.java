@@ -14,16 +14,14 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If enabled = true → The client supports managed rooms and controlled playback.</li>
- *     <li>If enabled = false → The client does not support managed rooms.</li>
+ *     <li>If managedRooms = true → The client supports managed rooms and controlled playback.</li>
+ *     <li>If managedRooms = false → The client does not support managed rooms.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "managedRooms": {
- *     "enabled": true
- *   }
+ *   "managedRooms": true
  * }
  * </pre>
  */
@@ -32,5 +30,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class ManagedRoomsFeature extends Feature {
-    private boolean enabled;
+    private boolean managedRooms;
 }

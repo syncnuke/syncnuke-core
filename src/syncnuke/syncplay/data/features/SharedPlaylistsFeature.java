@@ -13,16 +13,14 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client supports shared playlists.</li>
- *     <li>If supported = false → The client does not support shared playlists.</li>
+ *     <li>If sharedPlaylists = true → The client supports shared playlists.</li>
+ *     <li>If sharedPlaylists = false → The client does not support shared playlists.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "sharedPlaylists": {
- *     "supported": true
- *   }
+ *   "sharedPlaylists": true
  * }
  * </pre>
  */
@@ -31,5 +29,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class SharedPlaylistsFeature extends Feature {
-    private boolean supported;
+    private boolean sharedPlaylists;
 }

@@ -14,16 +14,14 @@ import lombok.NoArgsConstructor;
  *
  * <p><b>Use Cases:</b></p>
  * <ul>
- *     <li>If supported = true → The client can send and receive chat messages.</li>
- *     <li>If supported = false → Chat functionality is disabled.</li>
+ *     <li>If chat = true → The client can send and receive chat messages.</li>
+ *     <li>If chat = false → Chat functionality is disabled.</li>
  * </ul>
  *
  * <p><b>Example JSON:</b></p>
  * <pre>
  * {
- *   "chat": {
- *     "supported": true
- *   }
+ *   "chat": true
  * }
  * </pre>
  */
@@ -32,5 +30,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class ChatFeature extends Feature {
-    private boolean supported;
+    private boolean chat;
 }

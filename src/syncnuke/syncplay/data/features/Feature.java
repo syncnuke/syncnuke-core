@@ -1,15 +1,13 @@
 package syncnuke.syncplay.data.features;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import syncnuke.syncplay.data.features.max.*;
+import syncnuke.syncplay.data.features.max.MaxChatMessageLengthFeature;
+import syncnuke.syncplay.data.features.max.MaxFilenameLengthFeature;
+import syncnuke.syncplay.data.features.max.MaxRoomNameLengthFeature;
+import syncnuke.syncplay.data.features.max.MaxUsernameLengthFeature;
 
 import java.io.Serializable;
 
-@JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.PROPERTY,
-        property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = ReadinessFeature.class, name = "readiness"),
         @JsonSubTypes.Type(value = ChatFeature.class, name = "chat"),
@@ -21,7 +19,9 @@ import java.io.Serializable;
         @JsonSubTypes.Type(value = MaxChatMessageLengthFeature.class, name = "maxChatMessageLength"),
         @JsonSubTypes.Type(value = MaxUsernameLengthFeature.class, name = "maxUsernameLength"),
         @JsonSubTypes.Type(value = MaxRoomNameLengthFeature.class, name = "maxRoomNameLength"),
-        @JsonSubTypes.Type(value = MaxFilenameLengthFeature.class, name = "maxFilenameLength")
+        @JsonSubTypes.Type(value = MaxFilenameLengthFeature.class, name = "maxFilenameLength"),
+        @JsonSubTypes.Type(value = IsolateRoomsFeature.class, name = "isolateRooms"),
+        @JsonSubTypes.Type(value = SetOthersReadinessFeature.class, name = "setOthersReadiness")
 })
 public abstract class Feature implements Serializable {
 }
