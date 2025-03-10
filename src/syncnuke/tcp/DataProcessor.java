@@ -7,18 +7,20 @@ import lombok.extern.slf4j.Slf4j;
 import syncnuke.syncplay.commands.Command;
 import syncnuke.syncplay.data.BaseData;
 
+import java.util.Optional;
+
 @Slf4j
 public class DataProcessor {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    public BaseData get(String json) {
+    public Optional<BaseData> get(String json) {
         try {
             JsonNode jsonNode = mapper.readTree(json);
 
             for (Command command : Command.values()) {
                 if (jsonNode.has(command.getName())) {
-                    return getObject(jsonNode, command.getName(), command.getDataClass());
+                    return Optional.of(getObject(jsonNode, command.getName(), command.getDataClass()));
                 }
             }
 
@@ -26,7 +28,8 @@ public class DataProcessor {
             log.error("Failed to parse JSON: {}", e.getMessage());
         }
 
-        throw new RuntimeException("No command found in JSON: " + json);
+        return Optional.empty();
+
     }
 
     private BaseData getObject(JsonNode jsonNode, String fieldName, Class<? extends BaseData> dataClass) throws JsonProcessingException {
@@ -35,4 +38,5 @@ public class DataProcessor {
         }
         return mapper.treeToValue(jsonNode.get(fieldName), dataClass);
     }
+
 }

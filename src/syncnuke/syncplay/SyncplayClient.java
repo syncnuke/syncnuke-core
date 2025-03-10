@@ -9,6 +9,7 @@ import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.DataProcessor;
 import syncnuke.tcp.TcpClient;
 
+import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -52,8 +53,11 @@ public class SyncplayClient extends TcpClient {
     protected void handleResponse(String line) {
         log.debug("Server response: {}", line);
         try {
-            BaseData data = dataProcessor.get(line);
-
+            Optional<BaseData> response = dataProcessor.get(line);
+            if (response.isEmpty()) {
+                throw new RuntimeException("No command found in: " + line);
+            }
+            BaseData data = response.get();
             if (data instanceof StateData stateData) {
                 handleStateUpdate(stateData);
             } else if (data instanceof SetData setData) {
