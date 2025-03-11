@@ -80,25 +80,18 @@ public class SyncplayClient extends KeepAliveClient {
             return;
         }
 
-        // TODO: Extract to update Playstate
-        state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
-        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
-        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
-
-        // Handle seeking
+        updatePlayState(stateData);
         if (stateData.getPlaystate().isDoSeek()) {
-            log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
-            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
-            stateData.getIgnoringOnTheFly().setClient(stateData.getIgnoringOnTheFly().getClient() + 1);
+            state.getIgnoringOnTheFly().setClient(state.getIgnoringOnTheFly().getClient() + 1);
             acknowledgeSeek();
         }
+        updatePing(stateData);
+        updateIgnoringOnTheFly(stateData);
 
-        // TODO: Extract to update Ping
-        // Handle latency and RTT
-        double sentTime = stateData.getPing().getClientLatencyCalculation();
-        setLastKnownRtt(sentTime);
+        acknowledgeState();
+    }
 
-        // TODO: Extract to updateIgnoringOnTheFly
+    private void updateIgnoringOnTheFly(StateData stateData) {
         if (stateData.getIgnoringOnTheFly() != null) {
             int serverVal = stateData.getIgnoringOnTheFly().getServer();
             int clientVal = stateData.getIgnoringOnTheFly().getClient();
@@ -117,8 +110,23 @@ public class SyncplayClient extends KeepAliveClient {
             state.getIgnoringOnTheFly().setServer(0);
             state.getIgnoringOnTheFly().setClient(0);
         }
+    }
 
-        acknowledgeState();
+    private void updatePing(StateData stateData) {
+        // Handle latency and RTT
+        double sentTime = stateData.getPing().getClientLatencyCalculation();
+        setLastKnownRtt(sentTime);
+    }
+
+    private void updatePlayState(StateData stateData) {
+        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
+        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
+
+        // Handle seeking
+        if (stateData.getPlaystate().isDoSeek()) {
+            log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
+            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+        }
     }
 
     private void setLastKnownRtt(double latencyCalculation) {
@@ -206,8 +214,7 @@ public class SyncplayClient extends KeepAliveClient {
 
     @Override
     protected void keepAlive() {
-        // TODO: Extract to isPlaying
-        if (!state.getPlaystate().isPaused() || state.getPlaystate().isDoSeek()) {
+        if (isPlaying()) {
             // During playback the server sends updates every second which we acknowledge, no need to keep alive
             return;
         }
@@ -221,6 +228,10 @@ public class SyncplayClient extends KeepAliveClient {
         stateData.setPing(null);
 
         send(stateData);
+    }
+
+    private boolean isPlaying() {
+        return !state.getPlaystate().isPaused() || state.getPlaystate().isDoSeek();
     }
 
     public void send(BaseData data) {
