@@ -148,32 +148,13 @@ public class SyncplayClient extends KeepAliveClient {
     }
 
     private void acknowledgeState() {
-        // TODO: Send our own state directly instead of a new one
-        StateData stateData = new StateData(
-                state.getPlaystate().getPosition(),
-                state.getPlaystate().isPaused(),
-                state.getPlaystate().isDoSeek(),
-                username
-        );
-
-        stateData.getPing().setClientLatencyCalculation(getNow());
-        stateData.getPing().setClientRtt(state.getPing().getClientRtt());
-
-        send(stateData);
-//        setLastKnownRtt(getNow());
+        state.getPing().setClientLatencyCalculation(getNow());
+        send(state);
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
     private void acknowledgeSeek() {
-        // TODO: Use our own state instead of a new one
-        StateData stateData = new StateData(
-                state.getPlaystate().getPosition(),
-                state.getPlaystate().isPaused(),
-                true,
-                username
-        );
-
-        send(stateData);
+        send(state);
         state.getPlaystate().setDoSeek(false);
         log.debug("Seek acknowledged at position: {}", state.getPlaystate().getPosition());
     }
