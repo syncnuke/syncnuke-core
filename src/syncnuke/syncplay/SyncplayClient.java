@@ -10,12 +10,12 @@ import syncnuke.syncplay.data.exception.SerializationException;
 import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.tcp.DataProcessor;
-import syncnuke.tcp.KeepAliveClient;
+import syncnuke.tcp.TcpClient;
 
 import java.util.Optional;
 
 @Slf4j
-public class SyncplayClient extends KeepAliveClient {
+public class SyncplayClient extends TcpClient {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8999;
 
@@ -26,7 +26,6 @@ public class SyncplayClient extends KeepAliveClient {
     private final StateData state;
     private FileData file;
 
-    private boolean loggedIn = false;
     private String username;
 
     public SyncplayClient(DataProcessor dataProcessor) {
@@ -35,20 +34,12 @@ public class SyncplayClient extends KeepAliveClient {
         state = new StateData(0, true, false, null);
     }
 
-    private void logout() {
-        if (loggedIn) {
-            stopKeepAlive();
-        }
-    }
-
     public void login(String username, String room) {
-        logout();
         this.username = username;
         fileDataExtractor = new FileDataExtractor(username);
+        // Announce ourselves to the server and join the room
         send(new HelloData(username, room));
-        loggedIn = true;
         state.getPlaystate().setSetBy(username);
-        startKeepAlive(5);
     }
 
     @Override
@@ -178,28 +169,6 @@ public class SyncplayClient extends KeepAliveClient {
             send(setData);
             log.info("Acknowledged file: {}", setData.getFile());
         }
-    }
-
-    @Override
-    protected void keepAlive() {
-        if (isPlaying()) {
-            // During playback the server sends updates every second which we acknowledge, no need to keep alive
-            return;
-        }
-
-        StateData stateData = new StateData(
-                state.getPlaystate().getPosition(),
-                true,
-                false,
-                username
-        );
-        stateData.setPing(null);
-
-        send(stateData);
-    }
-
-    private boolean isPlaying() {
-        return !state.getPlaystate().isPaused() || state.getPlaystate().isDoSeek();
     }
 
     public void send(BaseData data) {
