@@ -23,8 +23,11 @@ public class SyncplayClient extends KeepAliveClient {
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
 
+    // Current state of our client and player
     private final PlaybackState state;
     private double lastKnownRtt = 0.0;
+    private int clientIgnoreCounter = 0;
+    private int serverIgnoreCounter = 0;
 
     private boolean loggedIn = false;
     private String username;
@@ -77,6 +80,7 @@ public class SyncplayClient extends KeepAliveClient {
         if (wasSentByUs(stateData)) {
             return;
         }
+
         state.updateState(
                 stateData.getPlaystate().getPosition(),
                 stateData.getPlaystate().isPaused(),
@@ -87,23 +91,29 @@ public class SyncplayClient extends KeepAliveClient {
         if (stateData.getPlaystate().isDoSeek()) {
             log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.setPosition(stateData.getPlaystate().getPosition());
+            clientIgnoreCounter++;
             acknowledgeSeek();
         }
 
-        // If server echoed our clientLatencyCalculation:
+        // Handle latency and RTT
         double sentTime = stateData.getPing().getClientLatencyCalculation();
         if (sentTime > 0) {
             double nowSeconds = System.currentTimeMillis() / 1000.0;
-            double computedRtt = nowSeconds - sentTime;
-
-            // Update our local RTT, used for next outgoing state
-            lastKnownRtt = computedRtt;
-            log.debug("New RTT: {}", computedRtt);
+            lastKnownRtt = nowSeconds - sentTime;
+            log.debug("New RTT: {}", lastKnownRtt);
         }
 
         if (stateData.getIgnoringOnTheFly() != null) {
-            stateData.getIgnoringOnTheFly().setClient(1);
-            stateData.getIgnoringOnTheFly().setServer(1);
+            int serverVal = stateData.getIgnoringOnTheFly().getServer();
+            int clientVal = stateData.getIgnoringOnTheFly().getClient();
+
+            serverIgnoreCounter = serverVal == serverIgnoreCounter ? 0 : serverVal;
+            clientIgnoreCounter = clientVal == clientIgnoreCounter ? 0 : clientVal;
+
+            log.debug("serverIgnoreCounter={}, clientIgnoreCounter={}", serverIgnoreCounter, clientIgnoreCounter);
+        } else {
+            serverIgnoreCounter = 0;
+            clientIgnoreCounter = 0;
         }
 
         acknowledgeState();
@@ -127,9 +137,10 @@ public class SyncplayClient extends KeepAliveClient {
         stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
         stateData.getPing().setClientRtt(lastKnownRtt);
 
-        // Send ignoringOnTheFly during seek only
-        if (state.isDoSeek()) {
-            stateData.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly(1, 1));
+        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
+            stateData.setIgnoringOnTheFly(
+                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
+            );
         } else {
             stateData.setIgnoringOnTheFly(null);
         }
@@ -142,11 +153,19 @@ public class SyncplayClient extends KeepAliveClient {
         StateData stateData = new StateData(
                 state.getPosition(),
                 state.isPaused(),
-                false,
+                true,
                 username
         );
+
+        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
+            stateData.setIgnoringOnTheFly(
+                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
+            );
+        }
+
         send(stateData);
         state.clearSeek();
+        send(stateData);
         log.debug("Seek acknowledged at position: {}", state.getPosition());
     }
 
@@ -192,6 +211,11 @@ public class SyncplayClient extends KeepAliveClient {
         );
 
         stateData.setPing(null);
+        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
+            stateData.setIgnoringOnTheFly(
+                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
+            );
+        }
 
         send(stateData);
     }
