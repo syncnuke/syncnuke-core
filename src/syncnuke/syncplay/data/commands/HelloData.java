@@ -2,7 +2,8 @@ package syncnuke.syncplay.data.commands;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRootName;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonView;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -10,6 +11,7 @@ import syncnuke.syncplay.data.BaseData;
 import syncnuke.syncplay.data.RoomData;
 import syncnuke.syncplay.data.features.ReadinessFeature;
 import syncnuke.syncplay.data.features.UiModeFeature;
+import syncnuke.syncplay.data.view.Views;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -17,20 +19,26 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-@JsonSerialize
 @JsonRootName("Hello")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class HelloData extends BaseData {
 
+    @JsonView(Views.Client.class)
     private String username;
+    @JsonView(Views.Client.class)
     private RoomData room;
+    @JsonView(Views.Client.class)
     private String version = "1.2.255"; // Compatibility version
-    @JsonProperty("realversion")
-    private String realVersion = "1.3.0"; // Actual Syncplay version
+    @JsonView(Views.Client.class)
     private Map<String, Object> features;
+
+    @JsonProperty("realversion")
+    @JsonView(Views.Server.class)
+    private String realVersion = "1.3.0"; // Actual Syncplay version
+    @JsonView(Views.Server.class)
     private String motd;
 
     public HelloData(String username, String room) {
-        super();
         this.username = username;
         this.room = new RoomData(room);
         initFeatures();
