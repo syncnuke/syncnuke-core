@@ -65,6 +65,8 @@ public class SyncplayClient extends TcpClient {
      * Processes a 'State' command from the server.
      */
     private void handleStateUpdate(StateData stateData) {
+        updatePing(stateData);
+
         if (wasSentByUs(stateData)) {
             // The server is telling us about our update to get on the same page
             updateIgnoringOnTheFly(stateData);
@@ -77,7 +79,6 @@ public class SyncplayClient extends TcpClient {
         if (stateData.getPlaystate().isDoSeek()) {
             acknowledgeSeek();
         }
-        updatePing(stateData);
         acknowledgeState();
     }
 
@@ -125,20 +126,18 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void updatePing(StateData stateData) {
+        double time = getNow();
+        state.getPing().setClientLatencyCalculation(time);
         double sentTime = stateData.getPing().getClientLatencyCalculation();
-        setLastKnownRtt(sentTime);
-    }
-
-    private void setLastKnownRtt(double latencyCalculation) {
-        if (latencyCalculation  < 0) {
-            return;
+        // Get difference between current time and the time we sent our previous request
+        double diff = time - sentTime;
+        if (diff < 0) {
+            diff = 0;
         }
-        state.getPing().setClientRtt(getNow() - latencyCalculation);
-        log.debug("New RTT: {}", state.getPing().getClientRtt());
+        state.getPing().setClientRtt(diff);
     }
 
     private void acknowledgeState() {
-        state.getPing().setClientLatencyCalculation(getNow());
         send(state);
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
