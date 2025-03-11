@@ -81,6 +81,24 @@ public class SyncplayClient extends TcpClient {
         acknowledgeState();
     }
 
+    private boolean wasSentByUs(StateData stateData) {
+        if (stateData == null || stateData.getPlaystate() == null) {
+            return false;
+        }
+        return username.equals(stateData.getPlaystate().getSetBy());
+    }
+
+    private void updatePlayState(StateData stateData) {
+        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
+        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
+
+        // Handle seeking
+        if (stateData.getPlaystate().isDoSeek()) {
+            log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
+            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+        }
+    }
+
     private void updateIgnoringOnTheFly(StateData stateData) {
         if (state.getIgnoringOnTheFly() == null) {
             state.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly(0, 0));
@@ -111,30 +129,12 @@ public class SyncplayClient extends TcpClient {
         setLastKnownRtt(sentTime);
     }
 
-    private void updatePlayState(StateData stateData) {
-        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
-        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
-
-        // Handle seeking
-        if (stateData.getPlaystate().isDoSeek()) {
-            log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
-            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
-        }
-    }
-
     private void setLastKnownRtt(double latencyCalculation) {
         if (latencyCalculation  < 0) {
             return;
         }
         state.getPing().setClientRtt(getNow() - latencyCalculation);
         log.debug("New RTT: {}", state.getPing().getClientRtt());
-    }
-
-    private boolean wasSentByUs(StateData stateData) {
-        if (stateData == null || stateData.getPlaystate() == null) {
-            return false;
-        }
-        return username.equals(stateData.getPlaystate().getSetBy());
     }
 
     private void acknowledgeState() {
