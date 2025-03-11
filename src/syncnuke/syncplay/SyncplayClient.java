@@ -50,7 +50,7 @@ public class SyncplayClient extends KeepAliveClient {
         fileDataExtractor = new FileDataExtractor(username);
         send(new HelloData(username, room));
         loggedIn = true;
-        startKeepAlive(1);
+        startKeepAlive(5);
     }
 
     @Override
@@ -193,29 +193,18 @@ public class SyncplayClient extends KeepAliveClient {
 
     @Override
     protected void keepAlive() {
-        if (state.isDoSeek()) {
+        if (!state.isPaused() || state.isDoSeek()) {
+            // During playback the server sends updates every second which we acknowledge, no need to keep alive
             return;
         }
 
-        long now = System.currentTimeMillis();
-        if (!state.isPaused()) {
-            state.updatePosition();
-        }
-        state.setLastUpdateTime(now);
-
         StateData stateData = new StateData(
                 state.getPosition(),
-                state.isPaused(),
+                true,
                 false,
                 username
         );
-
         stateData.setPing(null);
-        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
-            stateData.setIgnoringOnTheFly(
-                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
-            );
-        }
 
         send(stateData);
     }
