@@ -77,11 +77,6 @@ public class SyncplayClient extends KeepAliveClient {
                 stateData.getPlaystate().isDoSeek()
         );
 
-        if (stateData.getFile() != null) {
-            state.updateFile(stateData.getFile());
-            log.info("New file loaded: {}", stateData.getFile().getName());
-        }
-
         // Handle seeking
         if (stateData.getPlaystate().isDoSeek()) {
             log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
@@ -102,8 +97,7 @@ public class SyncplayClient extends KeepAliveClient {
                 state.getPosition(),
                 state.isPaused(),
                 false,
-                username,
-                state.getCurrentFile()
+                username
         );
 
         stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
@@ -121,8 +115,7 @@ public class SyncplayClient extends KeepAliveClient {
                 state.getPosition(),
                 state.isPaused(),
                 false,
-                username,
-                state.getCurrentFile()
+                username
         );
         send(stateData);
         state.clearSeek();
@@ -145,7 +138,7 @@ public class SyncplayClient extends KeepAliveClient {
     private void acknowledgeFile() {
         if (state.hasFile()) {
             SetData setData = new SetData();
-            setData.setFile(state.getCurrentFile());
+            setData.setFile(state.getFile());
             send(setData);
             log.info("Acknowledged file: {}", setData.getFile());
         }
@@ -167,8 +160,7 @@ public class SyncplayClient extends KeepAliveClient {
                 state.getPosition(),
                 state.isPaused(),
                 false,
-                username,
-                state.getCurrentFile()
+                username
         );
 
         stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);

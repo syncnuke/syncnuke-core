@@ -1,6 +1,5 @@
 package syncnuke.syncplay.state;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import syncnuke.syncplay.data.FileData;
@@ -9,7 +8,7 @@ import syncnuke.syncplay.data.FileData;
 @NoArgsConstructor
 public class PlaybackState {
 
-    private FileData currentFile;
+    private FileData file;
     private double position;
     private boolean paused;
     private boolean doSeek;
@@ -17,8 +16,8 @@ public class PlaybackState {
     private long lastUpdateTime;
     private double playbackRate = 1.0;
 
-    public PlaybackState(FileData currentFile, double position, boolean paused, boolean doSeek) {
-        this.currentFile = currentFile;
+    public PlaybackState(FileData file, double position, boolean paused, boolean doSeek) {
+        this.file = file;
         this.position = position;
         this.paused = paused;
         this.doSeek = doSeek;
@@ -32,11 +31,11 @@ public class PlaybackState {
     }
 
     public void updateFile(FileData file) {
-        this.currentFile = file;
+        this.file = file;
     }
 
     public boolean hasFile() {
-        return currentFile != null;
+        return file != null;
     }
 
     public void clearSeek() {
@@ -49,11 +48,11 @@ public class PlaybackState {
     }
 
     public double getPosition() {
-        if (position > currentFile.getDuration()) {
+        if (file != null && position > file.getDuration()) {
             // Stop playback at end of file
-            position = currentFile.getDuration();
             paused = true;
             doSeek = false;
+            position = file.getDuration();
         }
         return position;
     }

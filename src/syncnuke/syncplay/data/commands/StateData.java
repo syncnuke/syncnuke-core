@@ -18,13 +18,11 @@ public class StateData extends BaseData {
 
     private PlayState playstate;
     private PingState ping;
-    private FileData file;
     private IgnoringOnTheFly ignoringOnTheFly;
 
-    public StateData(double position, boolean paused, boolean doSeek, String setBy, FileData file) {
+    public StateData(double position, boolean paused, boolean doSeek, String setBy) {
         this.playstate = new PlayState(position, paused, doSeek, setBy);
         this.ping = new PingState();
-        this.file = file;
         this.ignoringOnTheFly = new IgnoringOnTheFly();
     }
 
