@@ -24,6 +24,7 @@ public class SyncplayClient extends KeepAliveClient {
     private FileDataExtractor fileDataExtractor;
 
     private final PlaybackState state;
+    private double lastKnownRtt = 0.0;
 
     private boolean loggedIn = false;
     private String username;
@@ -89,6 +90,17 @@ public class SyncplayClient extends KeepAliveClient {
             acknowledgeSeek();
         }
 
+        // If server echoed our clientLatencyCalculation:
+        double sentTime = stateData.getPing().getClientLatencyCalculation();
+        if (sentTime > 0) {
+            double nowSeconds = System.currentTimeMillis() / 1000.0;
+            double computedRtt = nowSeconds - sentTime;
+
+            // Update our local RTT, used for next outgoing state
+            lastKnownRtt = computedRtt;
+            log.debug("New RTT: {}", computedRtt);
+        }
+
         if (stateData.getIgnoringOnTheFly() != null) {
             stateData.getIgnoringOnTheFly().setClient(1);
             stateData.getIgnoringOnTheFly().setServer(1);
@@ -108,12 +120,12 @@ public class SyncplayClient extends KeepAliveClient {
         StateData stateData = new StateData(
                 state.getPosition(),
                 state.isPaused(),
-                false,
+                state.isDoSeek(),
                 username
         );
 
         stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
-        stateData.getPing().setClientRtt(state.getPosition());
+        stateData.getPing().setClientRtt(lastKnownRtt);
 
         // Send ignoringOnTheFly during seek only
         if (state.isDoSeek()) {
@@ -179,7 +191,7 @@ public class SyncplayClient extends KeepAliveClient {
                 username
         );
 
-        stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
+        stateData.setPing(null);
 
         send(stateData);
     }
