@@ -53,7 +53,7 @@ public class SyncplayClient extends KeepAliveClient {
 
     @Override
     protected void handleResponse(String line) {
-        log.debug("Server response: {}", line);
+        log.info("Server response: {}", line);
         try {
             Optional<BaseData> response = dataProcessor.get(line);
             if (response.isEmpty()) {
@@ -66,7 +66,7 @@ public class SyncplayClient extends KeepAliveClient {
                 handleSetUpdate(setData);
             }
         } catch (Exception e) {
-            log.error("Failed to parse server response: {}", e.getMessage());
+            log.error("Failed to parse server response", e);
         }
     }
 
@@ -116,7 +116,6 @@ public class SyncplayClient extends KeepAliveClient {
     }
 
     private void updatePing(StateData stateData) {
-        // Handle latency and RTT
         double sentTime = stateData.getPing().getClientLatencyCalculation();
         setLastKnownRtt(sentTime);
     }
@@ -127,7 +126,7 @@ public class SyncplayClient extends KeepAliveClient {
 
         // Handle seeking
         if (stateData.getPlaystate().isDoSeek()) {
-            log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
+            log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
         }
     }
