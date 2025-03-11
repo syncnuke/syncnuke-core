@@ -7,7 +7,6 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import syncnuke.syncplay.data.BaseData;
-import syncnuke.syncplay.data.FileData;
 
 @Data
 @NoArgsConstructor
@@ -46,6 +45,7 @@ public class StateData extends BaseData {
 
     @Data
     @NoArgsConstructor
+    @AllArgsConstructor
     public static class IgnoringOnTheFly {
         private int client;
         private int server;

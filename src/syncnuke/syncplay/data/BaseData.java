@@ -14,11 +14,12 @@ public class BaseData {
     }
 
     /**
+     * Serializes this object to a JSON string, using the provided view class to determine which fields to include.
      * @return The serialized JSON representation of this object
      */
-    public String serialize() {
+    public String serialize(Class<?> view) {
         try {
-            return objectMapper.writeValueAsString(this);
+            return objectMapper.writerWithView(view).writeValueAsString(this);
         } catch (JsonProcessingException e) {
             throw new SerializationException(e);
         }

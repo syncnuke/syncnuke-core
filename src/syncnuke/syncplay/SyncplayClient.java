@@ -7,6 +7,7 @@ import syncnuke.syncplay.data.commands.HelloData;
 import syncnuke.syncplay.data.commands.SetData;
 import syncnuke.syncplay.data.commands.StateData;
 import syncnuke.syncplay.data.exception.SerializationException;
+import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.DataProcessor;
@@ -114,8 +115,12 @@ public class SyncplayClient extends KeepAliveClient {
         stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
         stateData.getPing().setClientRtt(state.getPosition());
 
-        stateData.getIgnoringOnTheFly().setClient(1);
-        stateData.getIgnoringOnTheFly().setServer(1);
+        // Send ignoringOnTheFly during seek only
+        if (state.isDoSeek()) {
+            stateData.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly(1, 1));
+        } else {
+            stateData.setIgnoringOnTheFly(null);
+        }
 
         send(stateData);
         log.debug("State acknowledged at position: {}", state.getPosition());
@@ -181,8 +186,8 @@ public class SyncplayClient extends KeepAliveClient {
 
     public void send(BaseData data) {
         try {
-            log.info("Sending data: {}", data.serialize());
-            send(data.serialize());
+            log.info("Sending data: {}", data.serialize(Views.Client.class));
+            send(data.serialize(Views.Client.class));
         } catch (SerializationException e) {
             log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);
