@@ -33,7 +33,6 @@ public class SyncplayClient extends KeepAliveClient {
         super(SERVER_HOST, SERVER_PORT);
         this.dataProcessor = dataProcessor;
         state = new StateData(0, true, false, null);
-        state.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly());
     }
 
     private void logout() {
@@ -75,40 +74,44 @@ public class SyncplayClient extends KeepAliveClient {
      * Processes a 'State' command from the server.
      */
     private void handleStateUpdate(StateData stateData) {
-        // Ignore if the client that send ths state command was us
         if (wasSentByUs(stateData)) {
+            // The server is telling us about our update to get on the same page
+            updateIgnoringOnTheFly(stateData);
+            acknowledgeState();
             return;
         }
 
         updatePlayState(stateData);
+        updateIgnoringOnTheFly(stateData);
         if (stateData.getPlaystate().isDoSeek()) {
-            state.getIgnoringOnTheFly().setClient(state.getIgnoringOnTheFly().getClient() + 1);
             acknowledgeSeek();
         }
         updatePing(stateData);
-        updateIgnoringOnTheFly(stateData);
-
         acknowledgeState();
     }
 
     private void updateIgnoringOnTheFly(StateData stateData) {
+        if (state.getIgnoringOnTheFly() == null) {
+            state.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly(0, 0));
+        }
         if (stateData.getIgnoringOnTheFly() != null) {
-            int serverVal = stateData.getIgnoringOnTheFly().getServer();
-            int clientVal = stateData.getIgnoringOnTheFly().getClient();
+            int dataServerCount = stateData.getIgnoringOnTheFly().getServer();
+            int dataClientCount = stateData.getIgnoringOnTheFly().getClient();
 
-            if (serverVal == state.getIgnoringOnTheFly().getServer()) {
+            if (dataServerCount > dataClientCount) {
+                // Server told us to ignore more often, say ok by equalling the ignore counts
+                state.getIgnoringOnTheFly().setClient(dataServerCount);
+                state.getIgnoringOnTheFly().setServer(dataServerCount);
+            } else if (dataServerCount + dataClientCount == 0) {
+                // Server is acknowledging we both know we're back to listening to updates, remove ignore object from responses
+                state.setIgnoringOnTheFly(null);
+            } else {
+                // Server is telling us it knows we both want to listen to updates, give it the go ahead
                 state.getIgnoringOnTheFly().setServer(0);
-            } else {
-                state.getIgnoringOnTheFly().setServer(serverVal);
-            }
-            if (clientVal == state.getIgnoringOnTheFly().getClient()) {
                 state.getIgnoringOnTheFly().setClient(0);
-            } else {
-                state.getIgnoringOnTheFly().setClient(clientVal);
             }
         } else {
-            state.getIgnoringOnTheFly().setServer(0);
-            state.getIgnoringOnTheFly().setClient(0);
+            state.setIgnoringOnTheFly(null);
         }
     }
 
@@ -156,14 +159,6 @@ public class SyncplayClient extends KeepAliveClient {
         stateData.getPing().setClientLatencyCalculation(getNow());
         stateData.getPing().setClientRtt(state.getPing().getClientRtt());
 
-        if (state.getIgnoringOnTheFly().getClient() > 0 || state.getIgnoringOnTheFly().getServer() > 0) {
-            stateData.setIgnoringOnTheFly(
-                    state.getIgnoringOnTheFly()
-            );
-        } else {
-            stateData.setIgnoringOnTheFly(null);
-        }
-
         send(stateData);
 //        setLastKnownRtt(getNow());
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
@@ -178,15 +173,8 @@ public class SyncplayClient extends KeepAliveClient {
                 username
         );
 
-        if (state.getIgnoringOnTheFly().getClient() > 0 || state.getIgnoringOnTheFly().getServer() > 0) {
-            stateData.setIgnoringOnTheFly(
-                    state.getIgnoringOnTheFly()
-            );
-        }
-
         send(stateData);
         state.getPlaystate().setDoSeek(false);
-        send(stateData);
         log.debug("Seek acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
