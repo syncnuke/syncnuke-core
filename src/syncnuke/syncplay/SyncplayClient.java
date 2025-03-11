@@ -71,6 +71,10 @@ public class SyncplayClient extends KeepAliveClient {
      * Processes a 'State' command from the server.
      */
     private void handleStateUpdate(StateData stateData) {
+        // Ignore if the client that send ths state command was us
+        if (wasSentByUs(stateData)) {
+            return;
+        }
         state.updateState(
                 stateData.getPlaystate().getPosition(),
                 stateData.getPlaystate().isPaused(),
@@ -90,6 +94,13 @@ public class SyncplayClient extends KeepAliveClient {
         }
 
         acknowledgeState();
+    }
+
+    private boolean wasSentByUs(StateData stateData) {
+        if (stateData == null || stateData.getPlaystate() == null) {
+            return false;
+        }
+        return username.equals(stateData.getPlaystate().getSetBy());
     }
 
     private void acknowledgeState() {
