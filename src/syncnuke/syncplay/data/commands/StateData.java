@@ -12,6 +12,7 @@ import syncnuke.syncplay.data.view.Views;
 
 @Data
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonRootName("State")

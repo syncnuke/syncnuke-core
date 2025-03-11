@@ -9,7 +9,6 @@ import syncnuke.syncplay.data.commands.StateData;
 import syncnuke.syncplay.data.exception.SerializationException;
 import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
-import syncnuke.syncplay.state.PlaybackState;
 import syncnuke.tcp.DataProcessor;
 import syncnuke.tcp.KeepAliveClient;
 
@@ -24,10 +23,8 @@ public class SyncplayClient extends KeepAliveClient {
     private FileDataExtractor fileDataExtractor;
 
     // Current state of our client and player
-    private final PlaybackState state;
-    private double lastKnownRtt = 0.0;
-    private int clientIgnoreCounter = 0;
-    private int serverIgnoreCounter = 0;
+    private final StateData state;
+    private FileData file;
 
     private boolean loggedIn = false;
     private String username;
@@ -35,7 +32,8 @@ public class SyncplayClient extends KeepAliveClient {
     public SyncplayClient(DataProcessor dataProcessor) {
         super(SERVER_HOST, SERVER_PORT);
         this.dataProcessor = dataProcessor;
-        state = new PlaybackState(null, 0, true, false);
+        state = new StateData(0, true, false, null);
+        state.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly());
     }
 
     private void logout() {
@@ -50,6 +48,7 @@ public class SyncplayClient extends KeepAliveClient {
         fileDataExtractor = new FileDataExtractor(username);
         send(new HelloData(username, room));
         loggedIn = true;
+        state.getPlaystate().setSetBy(username);
         startKeepAlive(5);
     }
 
@@ -81,42 +80,53 @@ public class SyncplayClient extends KeepAliveClient {
             return;
         }
 
-        state.updateState(
-                stateData.getPlaystate().getPosition(),
-                stateData.getPlaystate().isPaused(),
-                stateData.getPlaystate().isDoSeek()
-        );
+        // TODO: Extract to update Playstate
+        state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
+        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
 
         // Handle seeking
         if (stateData.getPlaystate().isDoSeek()) {
             log.info("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
-            state.setPosition(stateData.getPlaystate().getPosition());
-            clientIgnoreCounter++;
+            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+            stateData.getIgnoringOnTheFly().setClient(stateData.getIgnoringOnTheFly().getClient() + 1);
             acknowledgeSeek();
         }
 
+        // TODO: Extract to update Ping
         // Handle latency and RTT
         double sentTime = stateData.getPing().getClientLatencyCalculation();
-        if (sentTime > 0) {
-            double nowSeconds = System.currentTimeMillis() / 1000.0;
-            lastKnownRtt = nowSeconds - sentTime;
-            log.debug("New RTT: {}", lastKnownRtt);
-        }
+        setLastKnownRtt(sentTime);
 
+        // TODO: Extract to updateIgnoringOnTheFly
         if (stateData.getIgnoringOnTheFly() != null) {
             int serverVal = stateData.getIgnoringOnTheFly().getServer();
             int clientVal = stateData.getIgnoringOnTheFly().getClient();
 
-            serverIgnoreCounter = serverVal == serverIgnoreCounter ? 0 : serverVal;
-            clientIgnoreCounter = clientVal == clientIgnoreCounter ? 0 : clientVal;
-
-            log.debug("serverIgnoreCounter={}, clientIgnoreCounter={}", serverIgnoreCounter, clientIgnoreCounter);
+            if (serverVal == state.getIgnoringOnTheFly().getServer()) {
+                state.getIgnoringOnTheFly().setServer(0);
+            } else {
+                state.getIgnoringOnTheFly().setServer(serverVal);
+            }
+            if (clientVal == state.getIgnoringOnTheFly().getClient()) {
+                state.getIgnoringOnTheFly().setClient(0);
+            } else {
+                state.getIgnoringOnTheFly().setClient(clientVal);
+            }
         } else {
-            serverIgnoreCounter = 0;
-            clientIgnoreCounter = 0;
+            state.getIgnoringOnTheFly().setServer(0);
+            state.getIgnoringOnTheFly().setClient(0);
         }
 
         acknowledgeState();
+    }
+
+    private void setLastKnownRtt(double latencyCalculation) {
+        if (latencyCalculation  < 0) {
+            return;
+        }
+        state.getPing().setClientRtt(getNow() - latencyCalculation);
+        log.debug("New RTT: {}", state.getPing().getClientRtt());
     }
 
     private boolean wasSentByUs(StateData stateData) {
@@ -127,46 +137,49 @@ public class SyncplayClient extends KeepAliveClient {
     }
 
     private void acknowledgeState() {
+        // TODO: Send our own state directly instead of a new one
         StateData stateData = new StateData(
-                state.getPosition(),
-                state.isPaused(),
-                state.isDoSeek(),
+                state.getPlaystate().getPosition(),
+                state.getPlaystate().isPaused(),
+                state.getPlaystate().isDoSeek(),
                 username
         );
 
-        stateData.getPing().setClientLatencyCalculation(System.currentTimeMillis() / 1000.0);
-        stateData.getPing().setClientRtt(lastKnownRtt);
+        stateData.getPing().setClientLatencyCalculation(getNow());
+        stateData.getPing().setClientRtt(state.getPing().getClientRtt());
 
-        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
+        if (state.getIgnoringOnTheFly().getClient() > 0 || state.getIgnoringOnTheFly().getServer() > 0) {
             stateData.setIgnoringOnTheFly(
-                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
+                    state.getIgnoringOnTheFly()
             );
         } else {
             stateData.setIgnoringOnTheFly(null);
         }
 
         send(stateData);
-        log.debug("State acknowledged at position: {}", state.getPosition());
+//        setLastKnownRtt(getNow());
+        log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
     private void acknowledgeSeek() {
+        // TODO: Use our own state instead of a new one
         StateData stateData = new StateData(
-                state.getPosition(),
-                state.isPaused(),
+                state.getPlaystate().getPosition(),
+                state.getPlaystate().isPaused(),
                 true,
                 username
         );
 
-        if (clientIgnoreCounter > 0 || serverIgnoreCounter > 0) {
+        if (state.getIgnoringOnTheFly().getClient() > 0 || state.getIgnoringOnTheFly().getServer() > 0) {
             stateData.setIgnoringOnTheFly(
-                    new StateData.IgnoringOnTheFly(clientIgnoreCounter, serverIgnoreCounter)
+                    state.getIgnoringOnTheFly()
             );
         }
 
         send(stateData);
-        state.clearSeek();
+        state.getPlaystate().setDoSeek(false);
         send(stateData);
-        log.debug("Seek acknowledged at position: {}", state.getPosition());
+        log.debug("Seek acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
     /**
@@ -176,16 +189,16 @@ public class SyncplayClient extends KeepAliveClient {
         log.debug("Server set data: {}", setData);
         FileData file = fileDataExtractor.extract(setData);
         if (file != null) {
-            state.updateFile(file);
+            this.file = file;
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
         }
     }
 
     private void acknowledgeFile() {
-        if (state.hasFile()) {
+        if (file != null) {
             SetData setData = new SetData();
-            setData.setFile(state.getFile());
+            setData.setFile(file);
             send(setData);
             log.info("Acknowledged file: {}", setData.getFile());
         }
@@ -193,13 +206,14 @@ public class SyncplayClient extends KeepAliveClient {
 
     @Override
     protected void keepAlive() {
-        if (!state.isPaused() || state.isDoSeek()) {
+        // TODO: Extract to isPlaying
+        if (!state.getPlaystate().isPaused() || state.getPlaystate().isDoSeek()) {
             // During playback the server sends updates every second which we acknowledge, no need to keep alive
             return;
         }
 
         StateData stateData = new StateData(
-                state.getPosition(),
+                state.getPlaystate().getPosition(),
                 true,
                 false,
                 username
@@ -217,6 +231,13 @@ public class SyncplayClient extends KeepAliveClient {
             log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * @return The current time, in seconds.
+     */
+    private double getNow() {
+        return System.currentTimeMillis() / 1000.0;
     }
 
 }
