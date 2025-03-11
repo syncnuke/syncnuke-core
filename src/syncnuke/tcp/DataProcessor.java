@@ -24,6 +24,8 @@ public class DataProcessor {
                 }
             }
 
+            log.warn("Did not have a command for : {}", json);
+
         } catch (JsonProcessingException e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
         }
