@@ -1,118 +1,226 @@
 package syncnuke.syncplay.player;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import org.newsclub.net.unix.AFUNIXSocket;
+import org.newsclub.net.unix.AFUNIXSocketAddress;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
+import java.util.UUID;
+import java.util.concurrent.*;
 
 @Slf4j
-public class MpvPlayer implements VideoPlayer {
+public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
-    private final String mpvSocketPath;
-    private VideoPlayerEventListener eventListener;
-    private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor();
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    public MpvPlayer(String mpvSocketPath) {
-        this.mpvSocketPath = mpvSocketPath;
-        startListening();
+    private final AFUNIXSocket socket;
+    private final BufferedWriter writer;
+    private final BufferedReader reader;
+    private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "mpv-ipc-listener");
+        t.setDaemon(true);
+        return t;
+    });
+    private volatile VideoPlayerEventListener eventListener;
+
+    public MpvPlayer(@NonNull String socketPath) throws IOException {
+        File sockFile = new File(socketPath);
+        if (!sockFile.exists()) {
+            throw new FileNotFoundException("Socket '" + socketPath + "' does not exist; did you launch mpv " +
+                    "with --input-ipc-server=" + socketPath + " ?");
+        }
+
+        this.socket = AFUNIXSocket.newInstance();
+        this.socket.connect(AFUNIXSocketAddress.of(sockFile));
+        this.socket.setSoTimeout((int) READ_TIMEOUT.toMillis());
+
+        this.writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(), StandardCharsets.UTF_8));
+        this.reader = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+
+        startAsyncEventPump();
+        subscribeDefaultEvents();
+        log.info("Connected to MPV IPC at {}", socketPath);
     }
 
     @Override
-    public void setEventListener(VideoPlayerEventListener eventListener) {
-        this.eventListener = eventListener;
+    public void setEventListener(VideoPlayerEventListener listener) {
+        this.eventListener = listener;
     }
 
     @Override
     public void play() {
-        sendCommand("{\"command\": [\"set_property\", \"pause\", false]}");
+        setProperty("pause", false);
     }
 
     @Override
     public void pause() {
-        sendCommand("{\"command\": [\"set_property\", \"pause\", true]}");
+        setProperty("pause", true);
     }
 
     @Override
     public void seek(double position) {
-        sendCommand("{\"command\": [\"set_property\", \"time-pos\", " + position + "]}");
+        sendCommand(MAPPER.createArrayNode()
+                .add("set_property")
+                .add("time-pos")
+                .add(position));
     }
 
     @Override
     public double getPosition() {
-        String response = sendCommand("{\"command\": [\"get_property\", \"time-pos\"]}");
-        return parseDoubleResponse(response);
+        JsonNode r = getProperty("time-pos");
+        return r.isNumber() ? r.asDouble() : 0.0;
     }
 
     @Override
     public boolean isPaused() {
-        String response = sendCommand("{\"command\": [\"get_property\", \"pause\"]}");
-        return Boolean.parseBoolean(response);
+        JsonNode r = getProperty("pause");
+        return r.isBoolean() && r.asBoolean();
     }
 
-    private String sendCommand(String command) {
+    /* ---------------- internal helpers ------------- */
+
+    private void setProperty(String name, Object value) {
+        sendCommand(MAPPER.createArrayNode()
+                .add("set_property")
+                .add(name)
+                .addPOJO(value));
+    }
+
+    private JsonNode getProperty(String name) {
+        return sendCommandForResult(MAPPER.createArrayNode()
+                .add("get_property")
+                .add(name));
+    }
+
+    /**
+     * Sends a command synchronously and returns the `"data"` field of the reply (or null on error/time-out).
+     */
+    private JsonNode sendCommandForResult(ArrayNode command) {
+        String reqId = UUID.randomUUID().toString();
+        ObjectNode msg = MAPPER.createObjectNode()
+                .put("request_id", reqId)
+                .set("command", command);
+
+        CompletableFuture<JsonNode> answer = new CompletableFuture<>();
+        pendingReplies.put(reqId, answer);
+
+        sendRaw(msg);
+
         try {
-            Process process = new ProcessBuilder("echo", command, "|", "socat", "-", "UNIX-CONNECT:" + mpvSocketPath)
-                    .redirectErrorStream(true)
-                    .start();
-            process.waitFor();
-            return new String(process.getInputStream().readAllBytes());
-        } catch (IOException | InterruptedException e) {
-            log.error("Failed to send command to mpv: {}", e.getMessage());
+            return answer.get(READ_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            log.error("IPC request {} failed: {}", reqId, e.toString());
             return null;
+        } finally {
+            pendingReplies.remove(reqId);
         }
     }
 
-    private double parseDoubleResponse(String response) {
+    private void sendCommand(ArrayNode command) {
+        ObjectNode msg = MAPPER.createObjectNode().set("command", command);
+        sendRaw(msg);
+    }
+
+    private void sendRaw(JsonNode obj) {
         try {
-            return Double.parseDouble(response.trim());
-        } catch (NumberFormatException e) {
-            log.error("Failed to parse response as double: {}", response);
-            return 0.0;
+            String json = MAPPER.writeValueAsString(obj);
+            writer.write(json);
+            writer.write('\n'); // MPV expects newline-delimited JSON
+            writer.flush();
+        } catch (IOException e) {
+            log.error("Failed to write to MPV socket: {}", e.toString());
         }
     }
 
-    private void startListening() {
-        listenerExecutor.submit(() -> {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                    new ProcessBuilder("socat", "UNIX-CONNECT:" + mpvSocketPath, "-")
-                            .redirectErrorStream(true)
-                            .start()
-                            .getInputStream()))) {
+    /* -------- asynchronous event pump -------------- */
 
-                String line;
+    private final ConcurrentMap<String, CompletableFuture<JsonNode>> pendingReplies = new ConcurrentHashMap<>();
+
+    private void startAsyncEventPump() {
+        ioExecutor.submit(() -> {
+            String line;
+            try {
                 while ((line = reader.readLine()) != null) {
-                    handleIncomingCommand(line);
+                    if (line.isBlank()) continue;
+                    JsonNode node = MAPPER.readTree(line);
+
+                    /* ---- 1) reply to a request_id ---- */
+                    if (node.has("request_id")) {
+                        String id = node.path("request_id").asText();
+                        CompletableFuture<JsonNode> cf = pendingReplies.get(id);
+                        if (cf != null) {
+                            cf.complete(node.path("data"));
+                            continue;
+                        }
+                    }
+
+                    /* ---- 2) async events ------------ */
+                    if (node.has("event")) {
+                        handleEvent(node);
+                    }
                 }
             } catch (IOException e) {
-                log.error("Failed to listen to mpv socket: {}", e.getMessage());
+                log.error("Event pump stopped: {}", e.toString());
             }
         });
     }
 
-    private void handleIncomingCommand(String line) {
-        log.debug("Received command from mpv: {}", line);
-        if (eventListener == null) {
-            return;
-        }
+    private void subscribeDefaultEvents() {
+        // pause property changes
+        observeProperty(1, "pause");
+        // time-pos changes (once per ~1 s, can be tuned with mpv option --property-update)
+        observeProperty(2, "time-pos");
+    }
 
-        try {
-            // Parse the incoming JSON command
-            if (line.contains("\"event\":\"pause\"")) {
-                boolean isPaused = line.contains("\"pause\":true");
-                if (isPaused) {
-                    eventListener.onPause();
-                } else {
-                    eventListener.onPlay();
+    private void observeProperty(int id, String property) {
+        sendCommand(MAPPER.createArrayNode()
+                .add("observe_property")
+                .add(id)
+                .add(property));
+    }
+
+    private void handleEvent(JsonNode node) {
+        String evt = node.get("event").asText();
+        if ("property-change".equals(evt)) {
+            String name = node.path("name").asText();
+            JsonNode data = node.get("data");
+
+            if ("pause".equals(name)) {
+                boolean paused = data.asBoolean(false);
+                if (eventListener != null) {
+                    if (paused) eventListener.onPause(); else eventListener.onPlay();
                 }
-            } else if (line.contains("\"time-pos\"")) {
-                double position = parseDoubleResponse(line);
-                eventListener.onSeek(position);
+            } else if ("time-pos".equals(name) && data.isNumber()) {
+                double pos = data.asDouble();
+                if (eventListener != null) eventListener.onSeek(pos);
             }
-        } catch (Exception e) {
-            log.error("Failed to handle incoming command: {}", e.getMessage());
+        } else if ("seek".equals(evt)) {
+            /* optional: MPV also emits explicit "seek" events */
         }
     }
+
+    /* ---------------- resource cleanup ------------- */
+
+    @Override
+    public void close() {
+        try {
+            socket.shutdownOutput();
+            socket.shutdownInput();
+            writer.close();
+            reader.close();
+            socket.close();
+        } catch (IOException e) {
+            log.error("Failed to close MPV socket: {}", e.toString());
+        }
+        ioExecutor.shutdownNow();
+    }
+
 }

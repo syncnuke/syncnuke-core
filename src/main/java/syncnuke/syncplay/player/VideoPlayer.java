@@ -1,6 +1,6 @@
 package syncnuke.syncplay.player;
 
-public interface VideoPlayer {
+public interface VideoPlayer extends AutoCloseable {
     void play();
     void pause();
     void seek(double position);
