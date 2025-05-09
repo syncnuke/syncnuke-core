@@ -9,17 +9,20 @@ import syncnuke.syncplay.data.commands.StateData;
 import syncnuke.syncplay.data.exception.SerializationException;
 import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
+import syncnuke.syncplay.player.VideoPlayer;
+import syncnuke.syncplay.player.VideoPlayerEventListener;
 import syncnuke.tcp.DataProcessor;
 import syncnuke.tcp.TcpClient;
 
 import java.util.Optional;
 
 @Slf4j
-public class SyncplayClient extends TcpClient {
+public class SyncplayClient extends TcpClient implements VideoPlayerEventListener {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8999;
 
     private final DataProcessor dataProcessor;
+    private final VideoPlayer videoPlayer;
     private FileDataExtractor fileDataExtractor;
 
     // Current state of our client and player
@@ -28,9 +31,12 @@ public class SyncplayClient extends TcpClient {
 
     private String username;
 
-    public SyncplayClient(DataProcessor dataProcessor) {
+    public SyncplayClient(DataProcessor dataProcessor, VideoPlayer videoPlayer) {
         super(SERVER_HOST, SERVER_PORT);
         this.dataProcessor = dataProcessor;
+        this.videoPlayer = videoPlayer;
+        videoPlayer.setEventListener(this);
+
         state = new StateData(0, true, false, null);
     }
 
@@ -90,6 +96,16 @@ public class SyncplayClient extends TcpClient {
     }
 
     private void updatePlayState(StateData stateData) {
+        boolean wasPaused = state.getPlaystate().isPaused();
+        boolean isPaused = stateData.getPlaystate().isPaused();
+        videoPlayer.isPaused();
+
+        if (isPaused && !wasPaused) {
+            videoPlayer.pause();
+        } else if (!isPaused && wasPaused) {
+            videoPlayer.play();
+        }
+
         state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
         state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
 
@@ -97,6 +113,7 @@ public class SyncplayClient extends TcpClient {
         if (stateData.getPlaystate().isDoSeek()) {
             log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+            videoPlayer.seek(state.getPlaystate().getPosition());
         }
     }
 
@@ -185,6 +202,28 @@ public class SyncplayClient extends TcpClient {
      */
     private double getNow() {
         return System.currentTimeMillis() / 1000.0;
+    }
+
+    @Override
+    public void onPlay() {
+        log.info("Play command received from video player");
+        state.getPlaystate().setPaused(false);
+        acknowledgeState();
+    }
+
+    @Override
+    public void onPause() {
+        log.info("Pause command received from video player");
+        state.getPlaystate().setPaused(true);
+        acknowledgeState();
+    }
+
+    @Override
+    public void onSeek(double position) {
+        log.info("Seek command received from video player: {}", position);
+        state.getPlaystate().setPosition(position);
+        state.getPlaystate().setDoSeek(true);
+        acknowledgeState();
     }
 
 }
