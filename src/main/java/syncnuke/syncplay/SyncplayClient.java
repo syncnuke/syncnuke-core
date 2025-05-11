@@ -221,6 +221,10 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
 
     @Override
     public void onSeek(double position) {
+        if (state == null || state.getPlaystate() == null) {
+            log.error("State or playstate is null during onSeek");
+            return; // Prevent further processing if state is not initialized
+        }
         log.info("Seek command received from video player: {}", position);
         state.getPlaystate().setPosition(position);
         state.getPlaystate().setDoSeek(true);
