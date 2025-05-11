@@ -85,6 +85,18 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
         return r.isBoolean() && r.asBoolean();
     }
 
+    @Override
+    public void load(String filePath) {
+        File file = new File(filePath);
+        if (!file.exists()) {
+            log.error("File does not exist: {}", filePath);
+            return;
+        }
+        sendCommand(MAPPER.createArrayNode()
+                .add("loadfile")
+                .add(filePath));
+    }
+
     /* ---------------- internal helpers ------------- */
 
     private void setProperty(String name, Object value) {

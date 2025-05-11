@@ -175,6 +175,7 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
             this.file = file;
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
+            videoPlayer.load(file.getName()); // TODO: Ensure this only runs when switching files
         }
     }
 
