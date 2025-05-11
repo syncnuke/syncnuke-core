@@ -10,22 +10,26 @@ import java.util.concurrent.Executors;
 @Slf4j
 public abstract class TcpClient implements Closeable {
 
-    private final Socket socket;
-    private final BufferedWriter writer;
-    private final BufferedReader reader;
+    private Socket socket;
+    private BufferedWriter writer;
+    private BufferedReader reader;
     private final ExecutorService executor;
 
     public TcpClient(String host, int port) {
         try {
-            socket = new Socket(host, port);
-            writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-            reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            connect(host, port);
             executor = Executors.newSingleThreadExecutor();
             startListening();
         } catch (IOException e) {
             log.error("Failed to connect to server: {}", e.getMessage());
             throw new RuntimeException(e);
         }
+    }
+
+    private void connect(String host, int port) throws IOException {
+        socket = new Socket(host, port);
+        writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
+        reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
     }
 
     // Keep the connection alive
@@ -47,6 +51,10 @@ public abstract class TcpClient implements Closeable {
 
     public void send(String data) {
         try {
+            if (socket == null || socket.isClosed() || !socket.isConnected()) {
+                log.error("Socket is not connected. Attempting to reconnect...");
+                reconnect();
+            }
             log.debug("Sending: {}", data);
             writer.write(data);
             writer.newLine();
@@ -57,10 +65,23 @@ public abstract class TcpClient implements Closeable {
         }
     }
 
+    private void reconnect() {
+        try {
+            close();
+            connect(socket.getInetAddress().getHostName(), socket.getPort());
+            log.info("Reconnected to the server.");
+        } catch (IOException e) {
+            log.error("Failed to reconnect to the server: {}", e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
     @Override
     public void close() {
         try {
-            socket.close();
+            if (socket != null) {
+                socket.close();
+            }
         } catch (IOException e) {
             log.error("Failed to close connection: {}", e.getMessage());
         }
