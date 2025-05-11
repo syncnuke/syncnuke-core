@@ -211,16 +211,24 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
             JsonNode data = node.get("data");
 
             if ("pause".equals(name)) {
-                boolean paused = data.asBoolean(false);
-                log.info("Pause property changed: {}", paused);
-                if (eventListener != null) {
-                    if (paused) eventListener.onPause(); else eventListener.onPlay();
+                if (data != null && data.isBoolean()) {
+                    boolean paused = data.asBoolean(false);
+                    log.info("Pause property changed: {}", paused);
+                    if (eventListener != null) {
+                        if (paused) eventListener.onPause(); else eventListener.onPlay();
+                    }
+                } else {
+                    log.warn("Pause property change event received with null or invalid data");
                 }
-            } else if ("time-pos".equals(name) && data.isNumber()) {
-                double pos = data.asDouble();
-                log.info("Time position changed: {}", pos);
-                if (eventListener != null) {
-                    eventListener.onSeek(pos);
+            } else if ("time-pos".equals(name)) {
+                if (data != null && data.isNumber()) {
+                    double pos = data.asDouble();
+                    log.info("Time position changed: {}", pos);
+                    if (eventListener != null) {
+                        eventListener.onSeek(pos);
+                    }
+                } else {
+                    log.warn("Time position change event received with null or invalid data");
                 }
             }
         } else if ("seek".equals(evt)) {
