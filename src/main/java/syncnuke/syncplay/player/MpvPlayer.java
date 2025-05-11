@@ -162,6 +162,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
             try {
                 while ((line = reader.readLine()) != null) {
                     if (line.isBlank()) continue;
+                    log.debug("Received raw event from MPV: {}", line);
                     JsonNode node = MAPPER.readTree(line);
 
                     /* ---- 1) reply to a request_id ---- */
@@ -176,11 +177,14 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
                     /* ---- 2) async events ------------ */
                     if (node.has("event")) {
+                        log.debug("Processing MPV event: {}", node.get("event").asText());
                         handleEvent(node);
                     }
                 }
             } catch (IOException e) {
-                log.error("Event pump stopped: {}", e.toString());
+                log.error("Event pump stopped due to IOException: {}", e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("Unexpected error in event pump: {}", e.getMessage(), e);
             }
         });
     }
@@ -201,21 +205,26 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
     private void handleEvent(JsonNode node) {
         String evt = node.get("event").asText();
+        log.debug("Handling MPV event: {}", evt);
         if ("property-change".equals(evt)) {
             String name = node.path("name").asText();
             JsonNode data = node.get("data");
 
             if ("pause".equals(name)) {
                 boolean paused = data.asBoolean(false);
+                log.info("Pause property changed: {}", paused);
                 if (eventListener != null) {
                     if (paused) eventListener.onPause(); else eventListener.onPlay();
                 }
             } else if ("time-pos".equals(name) && data.isNumber()) {
                 double pos = data.asDouble();
-                if (eventListener != null) eventListener.onSeek(pos);
+                log.info("Time position changed: {}", pos);
+                if (eventListener != null) {
+                    eventListener.onSeek(pos);
+                }
             }
         } else if ("seek".equals(evt)) {
-            /* optional: MPV also emits explicit "seek" events */
+            log.info("Seek event detected");
         }
     }
 
