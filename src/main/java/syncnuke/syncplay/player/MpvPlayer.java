@@ -31,6 +31,12 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
         return t;
     });
 
+    private final ExecutorService listenerExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "mpv-event-dispatch");
+        t.setDaemon(true);
+        return t;
+    });
+
     private final ScheduledExecutorService keepAliveExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "mpv-keep-alive");
         t.setDaemon(true);
@@ -219,21 +225,37 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
             String name = node.path("name").asText();
             JsonNode data = node.get("data");
 
-            if ("pause".equals(name) && data != null && data.isBoolean()) {
-                boolean paused = data.asBoolean(false);
-                if (eventListener != null) {
-                    if (paused) eventListener.onPause(); else eventListener.onPlay();
+            if ("pause".equals(name)) {
+                if (data != null && data.isBoolean()) {
+                    boolean paused = data.asBoolean(false);
+                    log.info("Pause property changed: {}", paused);
+                    if (eventListener != null) {
+                        listenerExecutor.submit(() -> {
+                            if (paused) eventListener.onPause();
+                            else eventListener.onPlay();
+                        });
+                    }
+                } else {
+                    log.warn("Pause property change event received with null or invalid data");
                 }
-            } else if ("time-pos".equals(name) && data != null && data.isNumber()) {
-                double pos = data.asDouble();
-                if (eventListener != null) {
-                    eventListener.onSeek(pos);
+            } else if ("time-pos".equals(name)) {
+                if (data != null && data.isNumber()) {
+                    double pos = data.asDouble();
+                    log.info("Time position changed: {}", pos);
+                    if (eventListener != null) {
+                        listenerExecutor.submit(() -> eventListener.onSeek(pos));
+                    }
+                } else {
+                    log.warn("Time position change event received with null or invalid data");
                 }
-            }
-        } else if ("seek".equals(evt)) {
-            if (eventListener != null) {
-                double position = getPosition();
-                eventListener.onSeek(position);
+            } else if ("seek".equals(name)) {
+                log.info("Seek event detected");
+                if (eventListener != null) {
+                    listenerExecutor.submit(() -> {
+                        double position = getPosition();
+                        eventListener.onSeek(position);
+                    });
+                }
             }
         }
     }
@@ -252,6 +274,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
     public void close() {
         try {
             keepAliveExecutor.shutdownNow();
+            listenerExecutor.shutdownNow();
             socket.shutdownOutput();
             socket.shutdownInput();
             writer.close();
