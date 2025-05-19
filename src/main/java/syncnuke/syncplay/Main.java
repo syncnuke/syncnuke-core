@@ -9,7 +9,7 @@ import syncnuke.tcp.DataProcessor;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 
-import static org.slf4j.LoggerFactory.*;
+import static org.slf4j.LoggerFactory.getLogger;
 
 public class Main {
 
