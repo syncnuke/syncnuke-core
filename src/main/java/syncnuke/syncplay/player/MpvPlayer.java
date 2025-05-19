@@ -12,14 +12,15 @@ import org.newsclub.net.unix.AFUNIXSocketAddress;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.UUID;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
-    private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final AtomicInteger REQUEST_COUNTER = new AtomicInteger();
 
     private final AFUNIXSocket socket;
     private final BufferedWriter writer;
@@ -29,6 +30,13 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
         t.setDaemon(true);
         return t;
     });
+
+    private final ScheduledExecutorService keepAliveExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r, "mpv-keep-alive");
+        t.setDaemon(true);
+        return t;
+    });
+
     private volatile VideoPlayerEventListener eventListener;
 
     public MpvPlayer(@NonNull String socketPath) throws IOException {
@@ -47,6 +55,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
         startAsyncEventPump();
         subscribeDefaultEvents();
+        startKeepAlivePings();
         log.info("Connected to MPV IPC at {}", socketPath);
     }
 
@@ -76,13 +85,13 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
     @Override
     public double getPosition() {
         JsonNode r = getProperty("time-pos");
-        return r.isNumber() ? r.asDouble() : 0.0;
+        return r != null && r.isNumber() ? r.asDouble() : 0.0;
     }
 
     @Override
     public boolean isPaused() {
         JsonNode r = getProperty("pause");
-        return r.isBoolean() && r.asBoolean();
+        return r != null && r.isBoolean() && r.asBoolean();
     }
 
     @Override
@@ -112,11 +121,8 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                 .add(name));
     }
 
-    /**
-     * Sends a command synchronously and returns the `"data"` field of the reply (or null on error/time-out).
-     */
     private JsonNode sendCommandForResult(ArrayNode command) {
-        String reqId = UUID.randomUUID().toString();
+        int reqId = REQUEST_COUNTER.incrementAndGet();
         ObjectNode msg = MAPPER.createObjectNode()
                 .put("request_id", reqId)
                 .set("command", command);
@@ -145,7 +151,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
         try {
             String json = MAPPER.writeValueAsString(obj);
             writer.write(json);
-            writer.write('\n'); // MPV expects newline-delimited JSON
+            writer.write('\n');
             writer.flush();
         } catch (IOException e) {
             log.error("Failed to write to MPV socket: {}", e.toString());
@@ -154,7 +160,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
     /* -------- asynchronous event pump -------------- */
 
-    private final ConcurrentMap<String, CompletableFuture<JsonNode>> pendingReplies = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Integer, CompletableFuture<JsonNode>> pendingReplies = new ConcurrentHashMap<>();
 
     private void startAsyncEventPump() {
         ioExecutor.submit(() -> {
@@ -165,12 +171,15 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                     log.debug("Received raw event from MPV: {}", line);
                     JsonNode node = MAPPER.readTree(line);
 
-                    /* ---- 1) reply to a request_id ---- */
                     if (node.has("request_id")) {
-                        String id = node.path("request_id").asText();
+                        int id = node.path("request_id").asInt();
                         CompletableFuture<JsonNode> cf = pendingReplies.get(id);
                         if (cf != null) {
-                            cf.complete(node.path("data"));
+                            if (node.has("error") && !"success".equals(node.get("error").asText())) {
+                                cf.completeExceptionally(new IOException("MPV error: " + node.get("error").asText()));
+                            } else {
+                                cf.complete(node.get("data"));
+                            }
                             continue;
                         }
                     }
@@ -190,10 +199,10 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
     }
 
     private void subscribeDefaultEvents() {
-        // pause property changes
         observeProperty(1, "pause");
-        // time-pos changes (once per ~1 s, can be tuned with mpv option --property-update)
         observeProperty(2, "time-pos");
+        observeProperty(3, "seek");
+        log.info("Subscribed to default MPV events: pause, time-pos, seek");
     }
 
     private void observeProperty(int id, String property) {
@@ -210,37 +219,39 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
             String name = node.path("name").asText();
             JsonNode data = node.get("data");
 
-            if ("pause".equals(name)) {
-                if (data != null && data.isBoolean()) {
-                    boolean paused = data.asBoolean(false);
-                    log.info("Pause property changed: {}", paused);
-                    if (eventListener != null) {
-                        if (paused) eventListener.onPause(); else eventListener.onPlay();
-                    }
-                } else {
-                    log.warn("Pause property change event received with null or invalid data");
+            if ("pause".equals(name) && data != null && data.isBoolean()) {
+                boolean paused = data.asBoolean(false);
+                if (eventListener != null) {
+                    if (paused) eventListener.onPause(); else eventListener.onPlay();
                 }
-            } else if ("time-pos".equals(name)) {
-                if (data != null && data.isNumber()) {
-                    double pos = data.asDouble();
-                    log.info("Time position changed: {}", pos);
-                    if (eventListener != null) {
-                        eventListener.onSeek(pos);
-                    }
-                } else {
-                    log.warn("Time position change event received with null or invalid data");
+            } else if ("time-pos".equals(name) && data != null && data.isNumber()) {
+                double pos = data.asDouble();
+                if (eventListener != null) {
+                    eventListener.onSeek(pos);
                 }
             }
         } else if ("seek".equals(evt)) {
-            log.info("Seek event detected");
+            if (eventListener != null) {
+                double position = getPosition();
+                eventListener.onSeek(position);
+            }
         }
     }
 
-    /* ---------------- resource cleanup ------------- */
+    private void startKeepAlivePings() {
+        keepAliveExecutor.scheduleAtFixedRate(() -> {
+            try {
+                getProperty("pause");
+            } catch (Exception e) {
+                log.warn("Keep-alive ping failed: {}", e.getMessage());
+            }
+        }, 1, 3, TimeUnit.SECONDS);
+    }
 
     @Override
     public void close() {
         try {
+            keepAliveExecutor.shutdownNow();
             socket.shutdownOutput();
             socket.shutdownInput();
             writer.close();
