@@ -79,7 +79,9 @@ public class SyncplayClient extends SyncClient {
         updatePlayState(stateData);
         updateIgnoringOnTheFly(stateData);
         if (stateData.getPlaystate().isDoSeek()) {
-            acknowledgeSeek();
+            // We need to acknowledge twice to prove we've executed the seek
+            acknowledgeState();
+            state.getPlaystate().setDoSeek(false);
         }
         acknowledgeState();
     }
@@ -153,12 +155,6 @@ public class SyncplayClient extends SyncClient {
     private void acknowledgeState() {
         send(state);
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
-    }
-
-    private void acknowledgeSeek() {
-        send(state);
-        state.getPlaystate().setDoSeek(false);
-        log.debug("Seek acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
     /**
