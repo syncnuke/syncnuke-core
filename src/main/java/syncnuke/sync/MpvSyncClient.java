@@ -1,29 +1,22 @@
 package syncnuke.sync;
 
 import lombok.extern.slf4j.Slf4j;
+import syncnuke.client.SyncClient;
 import syncnuke.syncplay.player.VideoPlayer;
-import syncnuke.syncplay.player.VideoPlayerEventListener;
-import syncnuke.tcp.TcpClient;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
-public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener {
+public class MpvSyncClient extends SyncClient {
 
     private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final double debounceDelay;
-    private final VideoPlayer videoPlayer;
-    private volatile int prevStatus = 1; // 1 = playing, 0 = paused
-    private volatile double prevProgress = 0;
-    private volatile long prevProgTime = System.currentTimeMillis();
 
     public MpvSyncClient(String host, int port, double debounceDelay, VideoPlayer videoPlayer) {
-        super(host, port);
+        super(host, port, videoPlayer);
         this.debounceDelay = debounceDelay;
-        this.videoPlayer = videoPlayer;
-        this.videoPlayer.setEventListener(this);
     }
 
     public MpvSyncClient(String host, int port, VideoPlayer videoPlayer) {
@@ -44,35 +37,32 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
             long progressSeconds = bytesToLong(data);
 
             if (!ignoreUpdates.get()) {
-                boolean isPaused = videoPlayer.isPaused();
+                boolean isPaused = isPaused();
                 if ((statusByte == 1 && isPaused) || (statusByte == 0 && !isPaused)) {
                     serverCommandInProgress.set(true);
                     try {
                         if (statusByte == 1) {
-                            videoPlayer.play();
+                            play();
                             log.info("Play command executed from server");
                         } else {
-                            videoPlayer.pause();
+                            pause();
                             log.info("Pause command executed from server");
                         }
                         if (isSignificantChange(statusByte, progressSeconds)) {
-                            videoPlayer.seek(progressSeconds);
+                            seek(progressSeconds);
                             log.info("Synchronized seek with server during pause change: {}", progressSeconds);
                         }
                     } finally {
                         serverCommandInProgress.set(false);
                     }
-                    prevStatus = statusByte;
-                    prevProgress = progressSeconds;
-                    prevProgTime = System.currentTimeMillis();
+                    updateTracking(statusByte, progressSeconds);
                 }
 
-                double currentProgress = videoPlayer.getPosition();
+                double currentProgress = getPosition();
                 if (commandIndex == 3 && Math.abs(currentProgress - progressSeconds) > 1) {
-                    videoPlayer.seek(progressSeconds);
+                    seek(progressSeconds);
                     log.info("Seek command executed from server: {}", progressSeconds);
-                    prevProgress = progressSeconds;
-                    prevProgTime = System.currentTimeMillis();
+                    updateTracking(progressSeconds);
                 }
             }
         } catch (Exception e) {
@@ -87,15 +77,13 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         
         // Track status change
         int currentStatus = 1;
-        double currentProgress = videoPlayer.getPosition();
+        double currentProgress = getPosition();
         
         if (isSignificantChange(currentStatus, currentProgress)) {
             sendState(currentStatus, currentProgress);
         }
-        
-        prevStatus = currentStatus;
-        prevProgress = currentProgress;
-        prevProgTime = System.currentTimeMillis();
+
+        updateTracking(currentStatus, currentProgress);
     }
 
     @Override
@@ -105,15 +93,13 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         
         // Track status change
         int currentStatus = 0;
-        double currentProgress = videoPlayer.getPosition();
+        double currentProgress = getPosition();
         
         if (isSignificantChange(currentStatus, currentProgress)) {
             sendState(currentStatus, currentProgress);
         }
-        
-        prevStatus = currentStatus;
-        prevProgress = currentProgress;
-        prevProgTime = System.currentTimeMillis();
+
+        updateTracking(currentStatus, currentProgress);
     }
 
     @Override
@@ -122,22 +108,13 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         log.debug("Seek event detected: {}", position);
         
         // Track position change
-        int currentStatus = videoPlayer.isPaused() ? 0 : 1;
+        int currentStatus = isPaused() ? 0 : 1;
         
         if (isSignificantChange(currentStatus, position)) {
             sendState(currentStatus, position);
         }
-        
-        prevStatus = currentStatus;
-        prevProgress = position;
-        prevProgTime = System.currentTimeMillis();
-    }
 
-    private boolean isSignificantChange(int currentStatus, double currentProgress) {
-        long currentTime = System.currentTimeMillis();
-        double positionDiff = Math.abs(currentProgress - prevProgress);
-        double timeDiff = (currentTime - prevProgTime) / 1000.0;
-        return currentStatus != prevStatus || positionDiff > 1 || timeDiff > 1;
+        updateTracking(currentStatus, position);
     }
 
     private void sendState(int status, double progress) {
