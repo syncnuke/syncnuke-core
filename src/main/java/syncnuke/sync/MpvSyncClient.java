@@ -17,6 +17,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
     private final VideoPlayer videoPlayer;
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
     private volatile double prevProgress = 0;
+    private volatile long prevProgTime = System.currentTimeMillis();
 
     public MpvSyncClient(String host, int port, double debounceDelay, VideoPlayer videoPlayer) {
         super(host, port);
@@ -63,6 +64,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
                     }
                     prevStatus = statusByte;
                     prevProgress = progressSeconds;
+                    prevProgTime = System.currentTimeMillis();
                 }
 
                 double currentProgress = videoPlayer.getPosition();
@@ -70,6 +72,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
                     videoPlayer.seek(progressSeconds);
                     log.info("Seek command executed from server: {}", progressSeconds);
                     prevProgress = progressSeconds;
+                    prevProgTime = System.currentTimeMillis();
                 }
             }
         } catch (Exception e) {
@@ -92,6 +95,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         
         prevStatus = currentStatus;
         prevProgress = currentProgress;
+        prevProgTime = System.currentTimeMillis();
     }
 
     @Override
@@ -109,6 +113,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         
         prevStatus = currentStatus;
         prevProgress = currentProgress;
+        prevProgTime = System.currentTimeMillis();
     }
 
     @Override
@@ -125,13 +130,14 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
         
         prevStatus = currentStatus;
         prevProgress = position;
+        prevProgTime = System.currentTimeMillis();
     }
 
     private boolean isSignificantChange(int currentStatus, double currentProgress) {
         long currentTime = System.currentTimeMillis();
-        double seekDiff = Math.abs(currentProgress - videoPlayer.getPosition());
-        double timeDiff = (currentTime - prevProgress) / 1000.0;
-        return currentStatus != prevStatus || seekDiff > 1 || timeDiff > 1;
+        double positionDiff = Math.abs(currentProgress - prevProgress);
+        double timeDiff = (currentTime - prevProgTime) / 1000.0;
+        return currentStatus != prevStatus || positionDiff > 1 || timeDiff > 1;
     }
 
     private void sendState(int status, double progress) {
