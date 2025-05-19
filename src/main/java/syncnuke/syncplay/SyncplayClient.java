@@ -17,8 +17,7 @@ import java.util.Optional;
 
 @Slf4j
 public class SyncplayClient extends SyncClient {
-    private static final String SERVER_HOST = "localhost";
-    private static final int SERVER_PORT = 8999;
+    private static final int DEFAULT_PORT = 8999;
 
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
@@ -29,8 +28,16 @@ public class SyncplayClient extends SyncClient {
 
     private String username;
 
-    public SyncplayClient(DataProcessor dataProcessor, VideoPlayer videoPlayer) {
-        super(SERVER_HOST, SERVER_PORT, videoPlayer);
+    public SyncplayClient(String host, int port, VideoPlayer videoPlayer) {
+        this(new DataProcessor(), host, port, videoPlayer);
+    }
+
+    public SyncplayClient(DataProcessor dataProcessor, String host, VideoPlayer videoPlayer) {
+        this(dataProcessor, host, DEFAULT_PORT, videoPlayer);
+    }
+
+    public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
+        super(host, port, videoPlayer);
         this.dataProcessor = dataProcessor;
 
         state = new StateData(0, true, false, null);
