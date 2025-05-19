@@ -220,15 +220,13 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
 
     private void handleEvent(JsonNode node) {
         String evt = node.get("event").asText();
-        log.debug("Handling MPV event: {}", evt);
         if ("property-change".equals(evt)) {
             String name = node.path("name").asText();
             JsonNode data = node.get("data");
-
             if ("pause".equals(name)) {
                 if (data != null && data.isBoolean()) {
                     boolean paused = data.asBoolean(false);
-                    log.info("Pause property changed: {}", paused);
+                    log.debug("Pause property changed: {}", paused);
                     if (eventListener != null) {
                         listenerExecutor.submit(() -> {
                             if (paused) eventListener.onPause();
@@ -241,7 +239,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
             } else if ("time-pos".equals(name)) {
                 if (data != null && data.isNumber()) {
                     double pos = data.asDouble();
-                    log.info("Time position changed: {}", pos);
+                    log.debug("Time position changed: {}", pos);
                     if (eventListener != null) {
                         listenerExecutor.submit(() -> eventListener.onSeek(pos));
                     }
@@ -249,13 +247,15 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                     log.warn("Time position change event received with null or invalid data");
                 }
             } else if ("seek".equals(name)) {
-                log.info("Seek event detected");
+                log.debug("Seek event detected");
                 if (eventListener != null) {
                     listenerExecutor.submit(() -> {
                         double position = getPosition();
                         eventListener.onSeek(position);
                     });
                 }
+            } else {
+                log.warn("Unknown property change event: {}", name);
             }
         }
     }

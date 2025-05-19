@@ -83,7 +83,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
     @Override
     public void onPlay() {
         if (serverCommandInProgress.get()) return;
-        log.info("Play event detected");
+        log.debug("Play event detected");
         
         // Track status change
         int currentStatus = 1;
@@ -101,7 +101,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
     @Override
     public void onPause() {
         if (serverCommandInProgress.get()) return;
-        log.info("Pause event detected");
+        log.debug("Pause event detected");
         
         // Track status change
         int currentStatus = 0;
@@ -119,7 +119,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
     @Override
     public void onSeek(double position) {
         if (serverCommandInProgress.get()) return;
-        log.info("Seek event detected: {}", position);
+        log.debug("Seek event detected: {}", position);
         
         // Track position change
         int currentStatus = videoPlayer.isPaused() ? 0 : 1;
@@ -150,6 +150,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
             System.arraycopy(progressBytes, 0, message, 2, 8);
 
             ignoreUpdates.set(true);
+            log.info("Sending state: status={}, progress={}", status, progress);
             send(new String(message, StandardCharsets.ISO_8859_1));
             Thread.sleep((long) (debounceDelay * 1000));
         } catch (InterruptedException e) {
