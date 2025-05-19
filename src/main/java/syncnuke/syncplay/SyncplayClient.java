@@ -1,6 +1,7 @@
 package syncnuke.syncplay;
 
 import lombok.extern.slf4j.Slf4j;
+import syncnuke.client.SyncClient;
 import syncnuke.syncplay.data.BaseData;
 import syncnuke.syncplay.data.FileData;
 import syncnuke.syncplay.data.commands.HelloData;
@@ -10,19 +11,16 @@ import syncnuke.syncplay.data.exception.SerializationException;
 import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
 import syncnuke.syncplay.player.VideoPlayer;
-import syncnuke.syncplay.player.VideoPlayerEventListener;
 import syncnuke.tcp.DataProcessor;
-import syncnuke.tcp.TcpClient;
 
 import java.util.Optional;
 
 @Slf4j
-public class SyncplayClient extends TcpClient implements VideoPlayerEventListener {
+public class SyncplayClient extends SyncClient {
     private static final String SERVER_HOST = "localhost";
     private static final int SERVER_PORT = 8999;
 
     private final DataProcessor dataProcessor;
-    private final VideoPlayer videoPlayer;
     private FileDataExtractor fileDataExtractor;
 
     // Current state of our client and player
@@ -32,10 +30,8 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
     private String username;
 
     public SyncplayClient(DataProcessor dataProcessor, VideoPlayer videoPlayer) {
-        super(SERVER_HOST, SERVER_PORT);
+        super(SERVER_HOST, SERVER_PORT, videoPlayer);
         this.dataProcessor = dataProcessor;
-        this.videoPlayer = videoPlayer;
-        videoPlayer.setEventListener(this);
 
         state = new StateData(0, true, false, null);
     }
@@ -98,12 +94,12 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
     private void updatePlayState(StateData stateData) {
         boolean wasPaused = state.getPlaystate().isPaused();
         boolean isPaused = stateData.getPlaystate().isPaused();
-        videoPlayer.isPaused();
+        isPaused(); // TODO: Remove this
 
         if (isPaused && !wasPaused) {
-            videoPlayer.pause();
+            pause();
         } else if (!isPaused && wasPaused) {
-            videoPlayer.play();
+            play();
         }
 
         state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
@@ -113,7 +109,7 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
         if (stateData.getPlaystate().isDoSeek()) {
             log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
-            videoPlayer.seek(state.getPlaystate().getPosition());
+            seek(state.getPlaystate().getPosition());
         }
     }
 
@@ -175,7 +171,7 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
             this.file = file;
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
-            videoPlayer.load(file.getName()); // TODO: Ensure this only runs when switching files
+            load(file.getName()); // TODO: Ensure this only runs when switching files
         }
     }
 
@@ -207,28 +203,45 @@ public class SyncplayClient extends TcpClient implements VideoPlayerEventListene
 
     @Override
     public void onPlay() {
-        log.info("Play command received from video player");
-        state.getPlaystate().setPaused(false);
-        acknowledgeState();
+        log.debug("Play event detected");
+        int currentStatus = 1;
+        double currentProgress = getPosition();
+        if (isSignificantChange(currentStatus, currentProgress)) {
+            log.info("Play command sent due to significant change");
+            state.getPlaystate().setPaused(false);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, currentProgress);
     }
 
     @Override
     public void onPause() {
-        log.info("Pause command received from video player");
-        state.getPlaystate().setPaused(true);
-        acknowledgeState();
+        log.debug("Pause event detected");
+        int currentStatus = 0;
+        double currentProgress = getPosition();
+        if (isSignificantChange(currentStatus, currentProgress)) {
+            log.info("Pause command sent due to significant change");
+            state.getPlaystate().setPaused(true);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, currentProgress);
     }
 
     @Override
     public void onSeek(double position) {
         if (state == null || state.getPlaystate() == null) {
             log.error("State or playstate is null during onSeek");
-            return; // Prevent further processing if state is not initialized
+            return;
         }
-        log.info("Seek command received from video player: {}", position);
-        state.getPlaystate().setPosition(position);
-        state.getPlaystate().setDoSeek(true);
-        acknowledgeState();
+        log.debug("Seek event detected: {}", position);
+        int currentStatus = isPaused() ? 0 : 1;
+        if (isSignificantChange(currentStatus, position)) {
+            log.info("Seek command sent due to significant change");
+            state.getPlaystate().setPosition(position);
+            state.getPlaystate().setDoSeek(true);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, position);
     }
 
 }
