@@ -108,7 +108,6 @@ public class SyncplayClient extends SyncClient {
     private void updatePlayState(StateData stateData) {
         boolean wasPaused = state.getPlaystate().isPaused();
         boolean isPaused = stateData.getPlaystate().isPaused();
-        isPaused(); // TODO: Remove this
 
         if (isPaused && !wasPaused) {
             pause();
