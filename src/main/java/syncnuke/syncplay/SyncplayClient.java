@@ -72,6 +72,11 @@ public class SyncplayClient extends SyncClient {
         if (wasSentByUs(stateData)) {
             // The server is telling us about our update to get on the same page
             updateIgnoringOnTheFly(stateData);
+            // TODO: Test the effect of this in client timeouts, might work better without
+            if (stateData.getPlaystate().isDoSeek()) {
+                log.debug("Server acknowledged our seek request");
+                state.getPlaystate().setDoSeek(false);
+            }
             acknowledgeState();
             return;
         }
