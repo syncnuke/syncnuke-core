@@ -11,6 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener {
 
+    private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final double debounceDelay;
     private final VideoPlayer videoPlayer;
@@ -44,16 +45,21 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
             if (!ignoreUpdates.get()) {
                 boolean isPaused = videoPlayer.isPaused();
                 if ((statusByte == 1 && isPaused) || (statusByte == 0 && !isPaused)) {
-                    if (statusByte == 1) {
-                        videoPlayer.play();
-                        log.info("Play command executed from server");
-                    } else {
-                        videoPlayer.pause();
-                        log.info("Pause command executed from server");
-                    }
-                    if (isSignificantChange(statusByte, progressSeconds)) {
-                        videoPlayer.seek(progressSeconds);
-                        log.info("Synchronized seek with server during pause change: {}", progressSeconds);
+                    serverCommandInProgress.set(true);
+                    try {
+                        if (statusByte == 1) {
+                            videoPlayer.play();
+                            log.info("Play command executed from server");
+                        } else {
+                            videoPlayer.pause();
+                            log.info("Pause command executed from server");
+                        }
+                        if (isSignificantChange(statusByte, progressSeconds)) {
+                            videoPlayer.seek(progressSeconds);
+                            log.info("Synchronized seek with server during pause change: {}", progressSeconds);
+                        }
+                    } finally {
+                        serverCommandInProgress.set(false);
                     }
                     prevStatus = statusByte;
                     prevProgress = progressSeconds;
@@ -73,6 +79,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
 
     @Override
     public void onPlay() {
+        if (serverCommandInProgress.get()) return;
         log.info("Play event detected");
         
         // Track status change
@@ -89,6 +96,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
 
     @Override
     public void onPause() {
+        if (serverCommandInProgress.get()) return;
         log.info("Pause event detected");
         
         // Track status change
@@ -105,6 +113,7 @@ public class MpvSyncClient extends TcpClient implements VideoPlayerEventListener
 
     @Override
     public void onSeek(double position) {
+        if (serverCommandInProgress.get()) return;
         log.info("Seek event detected: {}", position);
         
         // Track position change
