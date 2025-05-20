@@ -1,4 +1,4 @@
-package syncnuke.sync;
+package syncnuke.datasaver;
 
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.client.SyncClient;
