@@ -1,6 +1,6 @@
 package syncnuke.client;
 
-import syncnuke.client.datasaver.SlimSyncClient;
+import syncnuke.client.datasaver.DataSaverClient;
 import syncnuke.client.syncplay.SyncplayClient;
 import syncnuke.player.VideoPlayer;
 
@@ -22,7 +22,7 @@ public class SyncClientFactory {
     public static SyncClient createClient(String protocol, String host, int port, VideoPlayer videoPlayer) {
         return switch (protocol.toLowerCase()) {
             case "syncplay" -> new SyncplayClient(host, port, videoPlayer);
-            case "datasaver" -> new SlimSyncClient(host, port, videoPlayer);
+            case "datasaver" -> new DataSaverClient(host, port, videoPlayer);
             default -> throw new IllegalArgumentException("Unsupported protocol: " + protocol);
         };
     }
