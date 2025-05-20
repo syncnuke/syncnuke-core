@@ -1,4 +1,4 @@
-package syncnuke.syncplay.player;
+package syncnuke.player;
 
 public interface VideoPlayerEventListener {
     void onPlay();

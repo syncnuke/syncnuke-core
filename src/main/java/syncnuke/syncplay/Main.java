@@ -3,8 +3,8 @@ package syncnuke.syncplay;
 import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
-import syncnuke.syncplay.player.MpvPlayer;
-import syncnuke.syncplay.player.VideoPlayer;
+import syncnuke.player.MpvPlayer;
+import syncnuke.player.VideoPlayer;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;

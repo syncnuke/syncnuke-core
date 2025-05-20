@@ -10,7 +10,7 @@ import syncnuke.syncplay.data.commands.StateData;
 import syncnuke.syncplay.data.exception.SerializationException;
 import syncnuke.syncplay.data.view.Views;
 import syncnuke.syncplay.extractor.FileDataExtractor;
-import syncnuke.syncplay.player.VideoPlayer;
+import syncnuke.player.VideoPlayer;
 import syncnuke.tcp.DataProcessor;
 
 import java.util.Optional;

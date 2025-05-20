@@ -2,7 +2,7 @@ package syncnuke.sync;
 
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.client.SyncClient;
-import syncnuke.syncplay.player.VideoPlayer;
+import syncnuke.player.VideoPlayer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;

@@ -2,8 +2,8 @@ package syncnuke.client;
 
 import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
-import syncnuke.syncplay.player.VideoPlayer;
-import syncnuke.syncplay.player.VideoPlayerEventListener;
+import syncnuke.player.VideoPlayer;
+import syncnuke.player.VideoPlayerEventListener;
 import syncnuke.tcp.TcpClient;
 
 @Slf4j
