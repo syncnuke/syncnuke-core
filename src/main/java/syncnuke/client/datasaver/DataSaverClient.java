@@ -76,10 +76,8 @@ public class DataSaverClient extends SyncClient {
         if (serverCommandInProgress.get()) return;
         log.debug("Play event detected");
 
-        // Track status change
         State currentState = State.PLAYING;
         double currentProgress = getPosition();
-
         if (isSignificantChange(currentState.getCode(), currentProgress)) {
             sendState(currentState, currentProgress);
         }
@@ -92,10 +90,8 @@ public class DataSaverClient extends SyncClient {
         if (serverCommandInProgress.get()) return;
         log.debug("Pause event detected");
 
-        // Track status change
         State currentState = State.PAUSED;
         double currentProgress = getPosition();
-
         if (isSignificantChange(currentState.getCode(), currentProgress)) {
             sendState(currentState, currentProgress);
         }
