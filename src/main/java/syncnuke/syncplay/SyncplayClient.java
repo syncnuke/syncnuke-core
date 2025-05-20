@@ -39,7 +39,6 @@ public class SyncplayClient extends SyncClient {
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
         super(host, port, videoPlayer);
         this.dataProcessor = dataProcessor;
-
         state = new StateData(0, true, false, null);
     }
 
