@@ -1,8 +1,9 @@
-package syncnuke.client.syncplay;
+package syncnuke;
 
 import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
+import syncnuke.client.syncplay.SyncplayClient;
 import syncnuke.player.MpvPlayer;
 import syncnuke.player.VideoPlayer;
 
