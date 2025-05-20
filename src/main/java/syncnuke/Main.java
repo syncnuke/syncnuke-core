@@ -25,11 +25,9 @@ public class Main {
 
     public static void main(String[] args) {
         ServerConfig config = getServerConfig(args);
-
         CountDownLatch latch = new CountDownLatch(1);
-        String socketPath = System.getProperty("user.home") + "/.mpv-ipc/mpvsocket";
 
-        try (VideoPlayer videoPlayer = new MpvPlayer(socketPath);
+        try (VideoPlayer videoPlayer = getVideoPlayer();
              SyncClient client = new SyncplayClient(config.getHost(), config.getPort(), videoPlayer)) {
 
             client.login("user", "room");
@@ -45,6 +43,11 @@ public class Main {
         } finally {
             latch.countDown();
         }
+    }
+
+    private static VideoPlayer getVideoPlayer() throws IOException {
+        String socketPath = System.getProperty("user.home") + "/.mpv-ipc/mpvsocket";
+        return new MpvPlayer(socketPath);
     }
 
     private static ServerConfig getServerConfig(String[] args) {
