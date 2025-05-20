@@ -50,25 +50,25 @@ public class DataSaverClient extends SyncClient {
     private void handleStateUpdate(BaseData data) {
         State currentState = isPaused() ? State.PAUSED : State.PLAYING;
 
-        if (data.getState() != currentState) {
             serverCommandInProgress.set(true);
             try {
-                if (data.getState() == State.PLAYING) {
-                    play();
-                    log.info("Play command executed from server");
-                } else {
-                    pause();
-                    log.info("Pause command executed from server");
+                if (data.getState() != currentState) {
+                    if (data.getState() == State.PLAYING) {
+                        play();
+                        log.info("Play command executed from server");
+                    } else {
+                        pause();
+                        log.info("Pause command executed from server");
+                    }
                 }
                 if (isSignificantChange(data.getState().getCode(), data.getPosition())) {
                     seek(data.getPosition());
                     log.info("Synchronized seek with server during pause change: {}", data.getPosition());
                 }
+                updateTracking(data.getState().getCode(), data.getPosition());
             } finally {
                 serverCommandInProgress.set(false);
             }
-            updateTracking(data.getState().getCode(), data.getPosition());
-        }
     }
 
     @Override
