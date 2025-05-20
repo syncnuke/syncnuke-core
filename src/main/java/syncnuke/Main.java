@@ -4,6 +4,7 @@ import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import syncnuke.client.SyncClient;
+import syncnuke.client.datasaver.SlimSyncClient;
 import syncnuke.client.syncplay.SyncplayClient;
 import syncnuke.player.MpvPlayer;
 import syncnuke.player.VideoPlayer;
@@ -22,6 +23,7 @@ public class Main {
         private String host = "localhost";
         private int port = 8999;
         private String filePath;
+        private String protocol = "datasaver";
     }
 
     public static void main(String[] args) {
@@ -29,7 +31,7 @@ public class Main {
         CountDownLatch latch = new CountDownLatch(1);
 
         try (VideoPlayer videoPlayer = getVideoPlayer();
-             SyncClient client = new SyncplayClient(env.getHost(), env.getPort(), videoPlayer)) {
+             SyncClient client = getSyncClient(env, videoPlayer)) {
 
             client.login("user", "room");
             videoPlayer.load(env.getFilePath());
@@ -44,6 +46,14 @@ public class Main {
         } finally {
             latch.countDown();
         }
+    }
+
+    private static SyncClient getSyncClient(Environment env, VideoPlayer videoPlayer) {
+        return switch (env.getProtocol()) {
+            case "syncplay" -> new SyncplayClient(env.getHost(), env.getPort(), videoPlayer);
+            case "datasaver" -> new SlimSyncClient(env.getHost(), env.getPort(), videoPlayer);
+            default -> throw new IllegalArgumentException("Unsupported protocol: " + env.getProtocol());
+        };
     }
 
     private static VideoPlayer getVideoPlayer() throws IOException {
@@ -65,6 +75,9 @@ public class Main {
             if (cmd.hasOption("port")) {
                 config.setPort(Integer.parseInt(cmd.getOptionValue("port")));
             }
+            if (cmd.hasOption("protocol")) {
+                config.setProtocol(cmd.getOptionValue("protocol"));
+            }
             config.setFilePath(cmd.getOptionValue("file"));
         } catch (ParseException e) {
             logger.error("Failed to parse command line arguments: {}", e.getMessage());
@@ -80,18 +93,21 @@ public class Main {
                 .hasArg()
                 .desc("Server host (default: localhost)")
                 .build());
-
         options.addOption(Option.builder()
                 .longOpt("port")
                 .hasArg()
                 .desc("Server port (default: 8999)")
                 .type(Number.class)
                 .build());
-
         options.addOption(Option.builder()
                 .longOpt("file")
                 .hasArg()
                 .desc("File path for the media to load")
+                .build());
+        options.addOption(Option.builder()
+                .longOpt("protocol")
+                .hasArg()
+                .desc("Protocol to use (default: datasaver)")
                 .build());
         return options;
     }
