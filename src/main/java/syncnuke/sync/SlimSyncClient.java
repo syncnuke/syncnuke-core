@@ -8,18 +8,18 @@ import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
-public class MpvSyncClient extends SyncClient {
+public class SlimSyncClient extends SyncClient {
 
     private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final double debounceDelay;
 
-    public MpvSyncClient(String host, int port, double debounceDelay, VideoPlayer videoPlayer) {
+    public SlimSyncClient(String host, int port, double debounceDelay, VideoPlayer videoPlayer) {
         super(host, port, videoPlayer);
         this.debounceDelay = debounceDelay;
     }
 
-    public MpvSyncClient(String host, int port, VideoPlayer videoPlayer) {
+    public SlimSyncClient(String host, int port, VideoPlayer videoPlayer) {
         this(host, port, 0, videoPlayer);
     }
 
