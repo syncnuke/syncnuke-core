@@ -9,9 +9,9 @@ import syncnuke.client.syncplay.data.commands.SetData;
 import syncnuke.client.syncplay.data.commands.StateData;
 import syncnuke.client.syncplay.data.exception.SerializationException;
 import syncnuke.client.syncplay.data.view.Views;
-import syncnuke.client.syncplay.extractor.FileDataExtractor;
+import syncnuke.client.syncplay.service.extractor.FileDataExtractor;
+import syncnuke.client.syncplay.service.DataProcessor;
 import syncnuke.player.VideoPlayer;
-import syncnuke.tcp.DataProcessor;
 
 import java.util.Optional;
 

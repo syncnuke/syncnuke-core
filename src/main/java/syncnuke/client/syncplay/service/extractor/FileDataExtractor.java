@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.extractor;
+package syncnuke.client.syncplay.service.extractor;
 
 import syncnuke.client.syncplay.data.FileData;
 import syncnuke.client.syncplay.data.commands.SetData;
