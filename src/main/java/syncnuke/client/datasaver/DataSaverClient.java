@@ -8,6 +8,7 @@ import syncnuke.client.datasaver.data.State;
 import syncnuke.player.VideoPlayer;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
@@ -36,37 +37,37 @@ public class DataSaverClient extends SyncClient {
         try {
             BaseData data = BaseData.fromBytes(resp.getBytes(StandardCharsets.UTF_8));
             if (!ignoreUpdates.get()) {
-                State currentState = isPaused() ? State.PAUSED : State.PLAYING;
-
-                if (data.getState() != currentState) {
-                    serverCommandInProgress.set(true);
-                    try {
-                        if (data.getState() == State.PLAYING) {
-                            play();
-                            log.info("Play command executed from server");
-                        } else {
-                            pause();
-                            log.info("Pause command executed from server");
-                        }
-                        if (isSignificantChange(data.getState().getCode(), data.getPosition())) {
-                            seek(data.getPosition());
-                            log.info("Synchronized seek with server during pause change: {}", data.getPosition());
-                        }
-                    } finally {
-                        serverCommandInProgress.set(false);
-                    }
-                    updateTracking(data.getState().getCode(), data.getPosition());
-                }
-
-                double currentProgress = getPosition();
-                if (data.getCommand() == Command.UPDATE_STATE && Math.abs(currentProgress - data.getPosition()) > 1) {
-                    seek(data.getPosition());
-                    log.info("Seek command executed from server: {}", data.getPosition());
-                    updateTracking(data.getPosition());
+                Command command = Objects.requireNonNull(data.getCommand());
+                if (command == Command.UPDATE_STATE) {
+                    handleStateUpdate(data);
                 }
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
+        }
+    }
+
+    private void handleStateUpdate(BaseData data) {
+        State currentState = isPaused() ? State.PAUSED : State.PLAYING;
+
+        if (data.getState() != currentState) {
+            serverCommandInProgress.set(true);
+            try {
+                if (data.getState() == State.PLAYING) {
+                    play();
+                    log.info("Play command executed from server");
+                } else {
+                    pause();
+                    log.info("Pause command executed from server");
+                }
+                if (isSignificantChange(data.getState().getCode(), data.getPosition())) {
+                    seek(data.getPosition());
+                    log.info("Synchronized seek with server during pause change: {}", data.getPosition());
+                }
+            } finally {
+                serverCommandInProgress.set(false);
+            }
+            updateTracking(data.getState().getCode(), data.getPosition());
         }
     }
 
