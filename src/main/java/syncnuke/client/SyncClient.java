@@ -23,6 +23,8 @@ public abstract class SyncClient extends TcpClient implements VideoPlayer, Video
         this.videoPlayer.setEventListener(this);
     }
 
+    public abstract void login(String username, String room);
+
     /**
      * Used to filter out video state updates that are too minor to tigger server notifications.
      * @param currentStatus     the status of the video player (1 = playing, 0 = paused)

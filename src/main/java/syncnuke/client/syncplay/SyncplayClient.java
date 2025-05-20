@@ -42,6 +42,7 @@ public class SyncplayClient extends SyncClient {
         state = new StateData(0, true, false, null);
     }
 
+    @Override
     public void login(String username, String room) {
         this.username = username;
         fileDataExtractor = new FileDataExtractor(username);

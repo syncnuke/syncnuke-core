@@ -3,6 +3,7 @@ package syncnuke;
 import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
+import syncnuke.client.SyncClient;
 import syncnuke.client.syncplay.SyncplayClient;
 import syncnuke.player.MpvPlayer;
 import syncnuke.player.VideoPlayer;
@@ -29,7 +30,7 @@ public class Main {
         String socketPath = System.getProperty("user.home") + "/.mpv-ipc/mpvsocket";
 
         try (VideoPlayer videoPlayer = new MpvPlayer(socketPath);
-             SyncplayClient client = new SyncplayClient(config.getHost(), config.getPort(), videoPlayer)) {
+             SyncClient client = new SyncplayClient(config.getHost(), config.getPort(), videoPlayer)) {
 
             client.login("user", "room");
             videoPlayer.load(args[0]);

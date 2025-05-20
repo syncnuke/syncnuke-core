@@ -24,6 +24,11 @@ public class SlimSyncClient extends SyncClient {
     }
 
     @Override
+    public void login(String username, String room) {
+        // TODO: Implement room logic in datasaver stack
+    }
+
+    @Override
     protected void handleResponse(String line) {
         try {
             byte[] data = line.getBytes(StandardCharsets.ISO_8859_1);
