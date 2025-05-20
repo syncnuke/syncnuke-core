@@ -16,9 +16,9 @@ public class DataSaverClient extends SyncClient {
 
     private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
-    private final double debounceDelay;
+    private final int debounceDelay; // in milliseconds
 
-    public DataSaverClient(String host, int port, double debounceDelay, VideoPlayer videoPlayer) {
+    public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
         super(host, port, videoPlayer);
         this.debounceDelay = debounceDelay;
     }
@@ -123,7 +123,7 @@ public class DataSaverClient extends SyncClient {
             ignoreUpdates.set(true);
             log.info("Sending state: status={}, progress={}", state, progress);
             send(new String(message, StandardCharsets.UTF_8));
-            Thread.sleep((long) (debounceDelay * 1000));
+            Thread.sleep(debounceDelay);
         } catch (InterruptedException e) {
             log.error("Failed to send state: {}", e.getMessage());
         } finally {
