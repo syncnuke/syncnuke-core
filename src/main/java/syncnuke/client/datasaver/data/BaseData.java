@@ -15,6 +15,7 @@ public class BaseData {
     private State state;
     private double position;
 
+    // TODO: Make this happen by default by implementing Serializable
     public byte[] toBytes() {
         byte[] bytes = new byte[2 + Double.BYTES];
         bytes[0] = command.getCode();
