@@ -18,21 +18,21 @@ public class Main {
     private static final Logger logger = getLogger(Main.class);
 
     @Data
-    private static class ServerConfig {
+    private static class Environment {
         private String host = "localhost";
         private int port = 8999;
         private String filePath;
     }
 
     public static void main(String[] args) {
-        ServerConfig config = getServerConfig(args);
+        Environment env = parseArguments(args);
         CountDownLatch latch = new CountDownLatch(1);
 
         try (VideoPlayer videoPlayer = getVideoPlayer();
-             SyncClient client = new SyncplayClient(config.getHost(), config.getPort(), videoPlayer)) {
+             SyncClient client = new SyncplayClient(env.getHost(), env.getPort(), videoPlayer)) {
 
             client.login("user", "room");
-            videoPlayer.load(config.getFilePath());
+            videoPlayer.load(env.getFilePath());
 
             // Wait for client to close before terminating
             Runtime.getRuntime().addShutdownHook(new Thread(client::close));
@@ -51,12 +51,12 @@ public class Main {
         return new MpvPlayer(socketPath);
     }
 
-    private static ServerConfig getServerConfig(String[] args) {
+    private static Environment parseArguments(String[] args) {
         CommandLine cmd;
         Options options = getOptions();
         CommandLineParser parser = new DefaultParser();
 
-        ServerConfig config = new ServerConfig();
+        Environment config = new Environment();
         try {
             cmd = parser.parse(options, args);
             if (cmd.hasOption("host")) {
