@@ -4,8 +4,7 @@ import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import syncnuke.client.SyncClient;
-import syncnuke.client.datasaver.SlimSyncClient;
-import syncnuke.client.syncplay.SyncplayClient;
+import syncnuke.client.SyncClientFactory;
 import syncnuke.player.MpvPlayer;
 import syncnuke.player.VideoPlayer;
 
@@ -49,11 +48,12 @@ public class Main {
     }
 
     private static SyncClient getSyncClient(Environment env, VideoPlayer videoPlayer) {
-        return switch (env.getProtocol()) {
-            case "syncplay" -> new SyncplayClient(env.getHost(), env.getPort(), videoPlayer);
-            case "datasaver" -> new SlimSyncClient(env.getHost(), env.getPort(), videoPlayer);
-            default -> throw new IllegalArgumentException("Unsupported protocol: " + env.getProtocol());
-        };
+        return SyncClientFactory.createClient(
+                env.getProtocol(),
+                env.getHost(),
+                env.getPort(),
+                videoPlayer
+        );
     }
 
     private static VideoPlayer getVideoPlayer() throws IOException {
