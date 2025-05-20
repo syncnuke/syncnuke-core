@@ -69,6 +69,49 @@ public class SyncplayClient extends SyncClient {
         }
     }
 
+    @Override
+    public void onPlay() {
+        log.debug("Play event detected");
+        int currentStatus = 1;
+        double currentProgress = getPosition();
+        if (isSignificantChange(currentStatus, currentProgress)) {
+            log.info("Play command sent due to significant change");
+            state.getPlaystate().setPaused(false);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, currentProgress);
+    }
+
+    @Override
+    public void onPause() {
+        log.debug("Pause event detected");
+        int currentStatus = 0;
+        double currentProgress = getPosition();
+        if (isSignificantChange(currentStatus, currentProgress)) {
+            log.info("Pause command sent due to significant change");
+            state.getPlaystate().setPaused(true);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, currentProgress);
+    }
+
+    @Override
+    public void onSeek(double position) {
+        if (state == null || state.getPlaystate() == null) {
+            log.error("State or playstate is null during onSeek");
+            return;
+        }
+        log.debug("Seek event detected: {}", position);
+        int currentStatus = isPaused() ? 0 : 1;
+        if (isSignificantChange(currentStatus, position)) {
+            log.info("Seek command sent due to significant change");
+            state.getPlaystate().setPosition(position);
+            state.getPlaystate().setDoSeek(true);
+            acknowledgeState();
+        }
+        updateTracking(currentStatus, position);
+    }
+
     /**
      * Processes a 'State' command from the server.
      */
@@ -205,49 +248,6 @@ public class SyncplayClient extends SyncClient {
      */
     private double getNow() {
         return System.currentTimeMillis() / 1000.0;
-    }
-
-    @Override
-    public void onPlay() {
-        log.debug("Play event detected");
-        int currentStatus = 1;
-        double currentProgress = getPosition();
-        if (isSignificantChange(currentStatus, currentProgress)) {
-            log.info("Play command sent due to significant change");
-            state.getPlaystate().setPaused(false);
-            acknowledgeState();
-        }
-        updateTracking(currentStatus, currentProgress);
-    }
-
-    @Override
-    public void onPause() {
-        log.debug("Pause event detected");
-        int currentStatus = 0;
-        double currentProgress = getPosition();
-        if (isSignificantChange(currentStatus, currentProgress)) {
-            log.info("Pause command sent due to significant change");
-            state.getPlaystate().setPaused(true);
-            acknowledgeState();
-        }
-        updateTracking(currentStatus, currentProgress);
-    }
-
-    @Override
-    public void onSeek(double position) {
-        if (state == null || state.getPlaystate() == null) {
-            log.error("State or playstate is null during onSeek");
-            return;
-        }
-        log.debug("Seek event detected: {}", position);
-        int currentStatus = isPaused() ? 0 : 1;
-        if (isSignificantChange(currentStatus, position)) {
-            log.info("Seek command sent due to significant change");
-            state.getPlaystate().setPosition(position);
-            state.getPlaystate().setDoSeek(true);
-            acknowledgeState();
-        }
-        updateTracking(currentStatus, position);
     }
 
 }
