@@ -18,6 +18,7 @@ import java.util.Optional;
 @Slf4j
 public class SyncplayClient extends SyncClient {
     private static final int DEFAULT_PORT = 8999;
+    private static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
@@ -73,7 +74,7 @@ public class SyncplayClient extends SyncClient {
     @Override
     public void onPlay() {
         log.debug("Play event detected");
-        int currentStatus = 1;
+        int currentStatus = PLAY_STATUS;
         double currentProgress = getPosition();
         if (isSignificantChange(currentStatus, currentProgress)) {
             log.info("Play command sent due to significant change");
@@ -86,7 +87,7 @@ public class SyncplayClient extends SyncClient {
     @Override
     public void onPause() {
         log.debug("Pause event detected");
-        int currentStatus = 0;
+        int currentStatus = PAUSE_STATUS;
         double currentProgress = getPosition();
         if (isSignificantChange(currentStatus, currentProgress)) {
             log.info("Pause command sent due to significant change");
@@ -103,7 +104,7 @@ public class SyncplayClient extends SyncClient {
             return;
         }
         log.debug("Seek event detected: {}", position);
-        int currentStatus = isPaused() ? 0 : 1;
+        int currentStatus = isPaused() ? PAUSE_STATUS : PLAY_STATUS;
         if (isSignificantChange(currentStatus, position)) {
             log.info("Seek command sent due to significant change");
             state.getPlaystate().setPosition(position);
