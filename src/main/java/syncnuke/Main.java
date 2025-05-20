@@ -21,6 +21,7 @@ public class Main {
     private static class ServerConfig {
         private String host = "localhost";
         private int port = 8999;
+        private String filePath;
     }
 
     public static void main(String[] args) {
@@ -31,7 +32,7 @@ public class Main {
              SyncClient client = new SyncplayClient(config.getHost(), config.getPort(), videoPlayer)) {
 
             client.login("user", "room");
-            videoPlayer.load(args[0]);
+            videoPlayer.load(config.getFilePath());
 
             // Wait for client to close before terminating
             Runtime.getRuntime().addShutdownHook(new Thread(client::close));
@@ -64,6 +65,7 @@ public class Main {
             if (cmd.hasOption("port")) {
                 config.setPort(Integer.parseInt(cmd.getOptionValue("port")));
             }
+            config.setFilePath(cmd.getOptionValue("file"));
         } catch (ParseException e) {
             logger.error("Failed to parse command line arguments: {}", e.getMessage());
             System.exit(1);
@@ -84,6 +86,12 @@ public class Main {
                 .hasArg()
                 .desc("Server port (default: 8999)")
                 .type(Number.class)
+                .build());
+
+        options.addOption(Option.builder()
+                .longOpt("file")
+                .hasArg()
+                .desc("File path for the media to load")
                 .build());
         return options;
     }
