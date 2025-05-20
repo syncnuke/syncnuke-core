@@ -229,8 +229,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                     log.debug("Pause property changed: {}", paused);
                     if (eventListener != null) {
                         listenerExecutor.submit(() -> {
-                            if (paused) eventListener.onPause();
-                            else eventListener.onPlay();
+                            onPause(paused);
                         });
                     }
                 } else {
@@ -241,7 +240,7 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                     double pos = data.asDouble();
                     log.debug("Time position changed: {}", pos);
                     if (eventListener != null) {
-                        listenerExecutor.submit(() -> eventListener.onSeek(pos));
+                        listenerExecutor.submit(() -> onSeek(pos));
                     }
                 } else {
                     log.warn("Time position change event received with null or invalid data");
@@ -251,12 +250,33 @@ public final class MpvPlayer implements VideoPlayer, AutoCloseable {
                 if (eventListener != null) {
                     listenerExecutor.submit(() -> {
                         double position = getPosition();
-                        eventListener.onSeek(position);
+                        onSeek(position);
                     });
                 }
             } else {
                 log.warn("Unknown property change event: {}", name);
             }
+        }
+    }
+
+    private void onSeek(double position) {
+        // Slight delay to ensure seek operations don't eat the pause status
+        CompletableFuture.runAsync(() -> {
+            try {
+                Thread.sleep(1);
+            } catch (InterruptedException ie) {
+                log.error("Thread interrupted during sleep", ie);
+                Thread.currentThread().interrupt();
+            }
+            eventListener.onSeek(position);
+        });
+    }
+
+    private void onPause(boolean paused) {
+        if (paused) {
+            eventListener.onPause();
+        } else {
+            eventListener.onPlay();
         }
     }
 
