@@ -27,7 +27,7 @@ public abstract class SyncClient extends TcpClient implements VideoPlayer, Video
 
     /**
      * Used to filter out video state updates that are too minor to tigger server notifications.
-     * @param currentStatus     the status of the video player (1 = playing, 0 = paused)
+     * @param currentStatus     the status of the video player in number format
      * @param currentProgress   the current progress of the video player
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
