@@ -1,8 +1,8 @@
 package syncnuke.client.syncplay.service.extractor;
 
-import syncnuke.client.syncplay.data.FileData;
-import syncnuke.client.syncplay.data.commands.SetData;
-import syncnuke.client.syncplay.data.UserData;
+import syncnuke.client.syncplay.dto.FileData;
+import syncnuke.client.syncplay.dto.commands.SetData;
+import syncnuke.client.syncplay.dto.UserData;
 
 public class FileDataExtractor implements Extractor<SetData, FileData> {
 

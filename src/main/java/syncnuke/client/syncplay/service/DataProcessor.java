@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.client.syncplay.Command;
-import syncnuke.client.syncplay.data.BaseData;
+import syncnuke.client.syncplay.dto.BaseData;
 
 import java.util.Optional;
 

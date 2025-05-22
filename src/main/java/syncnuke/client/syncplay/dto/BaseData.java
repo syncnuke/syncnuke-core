@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data;
+package syncnuke.client.syncplay.dto;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;

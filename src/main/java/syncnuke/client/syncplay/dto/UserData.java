@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data;
+package syncnuke.client.syncplay.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonRootName;

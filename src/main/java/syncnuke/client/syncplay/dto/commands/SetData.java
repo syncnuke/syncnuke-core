@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.commands;
+package syncnuke.client.syncplay.dto.commands;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -6,15 +6,15 @@ import com.fasterxml.jackson.annotation.JsonRootName;
 import com.fasterxml.jackson.annotation.JsonView;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import syncnuke.client.syncplay.data.BaseData;
-import syncnuke.client.syncplay.data.FileData;
-import syncnuke.client.syncplay.data.RoomData;
-import syncnuke.client.syncplay.data.UserData;
-import syncnuke.client.syncplay.data.misc.ControllerAuthData;
-import syncnuke.client.syncplay.data.misc.PlaylistData;
-import syncnuke.client.syncplay.data.misc.PlaylistIndexData;
-import syncnuke.client.syncplay.data.misc.ReadyData;
-import syncnuke.client.syncplay.data.view.Views;
+import syncnuke.client.syncplay.dto.BaseData;
+import syncnuke.client.syncplay.dto.FileData;
+import syncnuke.client.syncplay.dto.RoomData;
+import syncnuke.client.syncplay.dto.UserData;
+import syncnuke.client.syncplay.dto.misc.ControllerAuthData;
+import syncnuke.client.syncplay.dto.misc.PlaylistData;
+import syncnuke.client.syncplay.dto.misc.PlaylistIndexData;
+import syncnuke.client.syncplay.dto.misc.ReadyData;
+import syncnuke.client.syncplay.dto.view.Views;
 
 import java.util.Map;
 

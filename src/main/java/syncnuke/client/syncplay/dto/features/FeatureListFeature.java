@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.features;
+package syncnuke.client.syncplay.dto.features;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

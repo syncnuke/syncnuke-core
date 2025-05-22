@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.commands;
+package syncnuke.client.syncplay.dto.commands;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRootName;
@@ -7,11 +7,11 @@ import com.fasterxml.jackson.annotation.JsonView;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import syncnuke.client.syncplay.data.BaseData;
-import syncnuke.client.syncplay.data.RoomData;
-import syncnuke.client.syncplay.data.features.ReadinessFeature;
-import syncnuke.client.syncplay.data.features.UiModeFeature;
-import syncnuke.client.syncplay.data.view.Views;
+import syncnuke.client.syncplay.dto.BaseData;
+import syncnuke.client.syncplay.dto.RoomData;
+import syncnuke.client.syncplay.dto.features.ReadinessFeature;
+import syncnuke.client.syncplay.dto.features.UiModeFeature;
+import syncnuke.client.syncplay.dto.view.Views;
 
 import java.util.HashMap;
 import java.util.Map;

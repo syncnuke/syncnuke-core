@@ -1,10 +1,10 @@
-package syncnuke.client.syncplay.data.features;
+package syncnuke.client.syncplay.dto.features;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
-import syncnuke.client.syncplay.data.features.max.MaxChatMessageLengthFeature;
-import syncnuke.client.syncplay.data.features.max.MaxFilenameLengthFeature;
-import syncnuke.client.syncplay.data.features.max.MaxRoomNameLengthFeature;
-import syncnuke.client.syncplay.data.features.max.MaxUsernameLengthFeature;
+import syncnuke.client.syncplay.dto.features.max.MaxChatMessageLengthFeature;
+import syncnuke.client.syncplay.dto.features.max.MaxFilenameLengthFeature;
+import syncnuke.client.syncplay.dto.features.max.MaxRoomNameLengthFeature;
+import syncnuke.client.syncplay.dto.features.max.MaxUsernameLengthFeature;
 
 import java.io.Serializable;
 

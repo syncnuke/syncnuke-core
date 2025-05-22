@@ -1,10 +1,10 @@
 package syncnuke.client.syncplay;
 
 import lombok.Getter;
-import syncnuke.client.syncplay.data.BaseData;
-import syncnuke.client.syncplay.data.commands.HelloData;
-import syncnuke.client.syncplay.data.commands.SetData;
-import syncnuke.client.syncplay.data.commands.StateData;
+import syncnuke.client.syncplay.dto.BaseData;
+import syncnuke.client.syncplay.dto.commands.HelloData;
+import syncnuke.client.syncplay.dto.commands.SetData;
+import syncnuke.client.syncplay.dto.commands.StateData;
 
 @Getter
 public enum Command {

@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.view;
+package syncnuke.client.syncplay.dto.view;
 
 public class Views {
     public static class Client {}   // Used when sending to server

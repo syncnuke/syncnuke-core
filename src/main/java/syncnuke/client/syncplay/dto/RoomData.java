@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data;
+package syncnuke.client.syncplay.dto;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;

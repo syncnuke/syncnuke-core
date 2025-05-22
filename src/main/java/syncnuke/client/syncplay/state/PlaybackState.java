@@ -2,7 +2,7 @@ package syncnuke.client.syncplay.state;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import syncnuke.client.syncplay.data.FileData;
+import syncnuke.client.syncplay.dto.FileData;
 
 @Data
 @NoArgsConstructor

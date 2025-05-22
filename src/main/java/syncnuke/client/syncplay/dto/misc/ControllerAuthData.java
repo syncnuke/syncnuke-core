@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.misc;
+package syncnuke.client.syncplay.dto.misc;
 
 import com.fasterxml.jackson.annotation.JsonRootName;
 import lombok.Data;

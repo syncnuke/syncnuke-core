@@ -1,4 +1,4 @@
-package syncnuke.client.syncplay.data.commands;
+package syncnuke.client.syncplay.dto.commands;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonRootName;
@@ -7,8 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import syncnuke.client.syncplay.data.BaseData;
-import syncnuke.client.syncplay.data.view.Views;
+import syncnuke.client.syncplay.dto.BaseData;
+import syncnuke.client.syncplay.dto.view.Views;
 
 @Data
 @NoArgsConstructor

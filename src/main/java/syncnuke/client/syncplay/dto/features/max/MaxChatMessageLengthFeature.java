@@ -1,10 +1,10 @@
-package syncnuke.client.syncplay.data.features.max;
+package syncnuke.client.syncplay.dto.features.max;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import syncnuke.client.syncplay.data.features.Feature;
+import syncnuke.client.syncplay.dto.features.Feature;
 
 /**
  * Represents the maximum chat message length feature in Syncplay.
