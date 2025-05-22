@@ -41,8 +41,10 @@ public abstract class TcpClient implements Closeable {
                     log.debug("Server response: {}", line);
                     handleResponse(line);
                 }
+            } catch (EOFException e) {
+                log.info("Server closed connection");
             } catch (IOException e) {
-                log.error("Connection closed: {}", e.getMessage());
+                log.error("Connection lost: {}", e.getMessage());
             }
         });
     }
