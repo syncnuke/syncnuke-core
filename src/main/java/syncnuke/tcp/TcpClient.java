@@ -51,7 +51,7 @@ public abstract class TcpClient implements Closeable {
 
     protected abstract void handleResponse(String line);
 
-    public void send(String data) {
+    public synchronized void send(String data) {
         try {
             if (socket == null || socket.isClosed() || !socket.isConnected()) {
                 log.error("Socket is not connected. Attempting to reconnect...");
