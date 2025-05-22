@@ -2,6 +2,7 @@ package syncnuke.client.datasaver;
 
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.client.SyncClient;
+import syncnuke.client.datasaver.data.BaseCodec;
 import syncnuke.client.datasaver.data.BaseData;
 import syncnuke.client.datasaver.data.Command;
 import syncnuke.client.datasaver.data.State;
@@ -12,14 +13,14 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
-public class DataSaverClient extends SyncClient {
+public class DataSaverClient extends SyncClient<BaseData> {
 
     private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final int debounceDelay; // in milliseconds
 
     public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
-        super(host, port, videoPlayer);
+        super(host, port, new BaseCodec(), videoPlayer);
         this.debounceDelay = debounceDelay;
     }
 
@@ -33,9 +34,8 @@ public class DataSaverClient extends SyncClient {
     }
 
     @Override
-    protected void handleResponse(String resp) {
+    protected void handleResponse(BaseData data) {
         try {
-            BaseData data = BaseData.fromBytes(resp.getBytes(StandardCharsets.UTF_8));
             if (!ignoreUpdates.get()) {
                 Command command = Objects.requireNonNull(data.getCommand());
                 if (command == Command.UPDATE_STATE) {
@@ -114,15 +114,15 @@ public class DataSaverClient extends SyncClient {
 
     private void sendState(State state, double progress) {
         try {
-            byte[] message = new BaseData(
+            BaseData message = new BaseData(
                     Command.UPDATE_STATE,
                     state,
                     progress
-            ).toBytes();
+            );
 
             ignoreUpdates.set(true);
             log.info("Sending state: status={}, progress={}", state, progress);
-            send(new String(message, StandardCharsets.UTF_8));
+            send(message);
             Thread.sleep(debounceDelay);
         } catch (InterruptedException e) {
             log.error("Failed to send state: {}", e.getMessage());

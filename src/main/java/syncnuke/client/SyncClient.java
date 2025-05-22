@@ -4,10 +4,11 @@ import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 import syncnuke.player.VideoPlayer;
 import syncnuke.player.VideoPlayerEventListener;
+import syncnuke.tcp.Codec;
 import syncnuke.tcp.TcpClient;
 
 @Slf4j
-public abstract class SyncClient extends TcpClient implements VideoPlayer, VideoPlayerEventListener {
+public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer, VideoPlayerEventListener {
 
     @Delegate(types = VideoPlayer.class)
     private final VideoPlayer videoPlayer;
@@ -17,8 +18,8 @@ public abstract class SyncClient extends TcpClient implements VideoPlayer, Video
     private volatile double prevProgress = 0;
     private volatile long prevProgTime = System.currentTimeMillis();
 
-    protected SyncClient(String host, int port, VideoPlayer videoPlayer) {
-        super(host, port);
+    protected SyncClient(String host, int port, Codec<T> codec, VideoPlayer videoPlayer) {
+        super(host, port, codec);
         this.videoPlayer = videoPlayer;
         this.videoPlayer.setEventListener(this);
     }

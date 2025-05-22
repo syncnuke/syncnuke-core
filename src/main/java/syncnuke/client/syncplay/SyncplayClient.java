@@ -16,7 +16,7 @@ import syncnuke.player.VideoPlayer;
 import java.util.Optional;
 
 @Slf4j
-public class SyncplayClient extends SyncClient {
+public class SyncplayClient extends SyncClient<String> {
     private static final int DEFAULT_PORT = 8999;
     private static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
@@ -38,7 +38,7 @@ public class SyncplayClient extends SyncClient {
     }
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
-        super(host, port, videoPlayer);
+        super(host, port, new StringCodec(), videoPlayer);
         this.dataProcessor = dataProcessor;
         state = new StateData(0, true, false, null);
     }
