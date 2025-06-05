@@ -112,6 +112,13 @@ public class DataSaverClient extends SyncClient<BaseData> {
         updateTracking(currentState.getCode(), position);
     }
 
+    @Override
+    protected void sendKeepAlive() {
+        State currentState = isPaused() ? State.PAUSED : State.PLAYING;
+        double currentProgress = getPosition();
+        sendState(currentState, currentProgress);
+    }
+
     private void sendState(State state, double progress) {
         try {
             BaseData message = new BaseData(
@@ -123,6 +130,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
             ignoreUpdates.set(true);
             log.info("Sending state: status={}, progress={}", state, progress);
             send(message);
+            updateLastMessageSentTime();
             Thread.sleep(debounceDelay);
         } catch (InterruptedException e) {
             log.error("Failed to send state: {}", e.getMessage());

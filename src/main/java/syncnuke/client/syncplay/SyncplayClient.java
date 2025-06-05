@@ -8,10 +8,10 @@ import syncnuke.client.syncplay.data.dto.FileData;
 import syncnuke.client.syncplay.data.dto.commands.HelloData;
 import syncnuke.client.syncplay.data.dto.commands.SetData;
 import syncnuke.client.syncplay.data.dto.commands.StateData;
-import syncnuke.client.syncplay.data.exception.SerializationException;
 import syncnuke.client.syncplay.data.dto.view.Views;
-import syncnuke.client.syncplay.service.extractor.FileDataExtractor;
+import syncnuke.client.syncplay.data.exception.SerializationException;
 import syncnuke.client.syncplay.service.DataProcessor;
+import syncnuke.client.syncplay.service.extractor.FileDataExtractor;
 import syncnuke.player.VideoPlayer;
 
 import java.util.Optional;
@@ -113,6 +113,16 @@ public class SyncplayClient extends SyncClient<String> {
             acknowledgeState();
         }
         updateTracking(currentStatus, position);
+    }
+
+    @Override
+    protected void sendKeepAlive() {
+        boolean status = isPaused();
+        double position = getPosition();
+        state.getPlaystate().setPaused(status);
+        state.getPlaystate().setPosition(position);
+        send(state);
+        updateTracking(status ? 0 : 1, position);
     }
 
     /**
@@ -240,6 +250,7 @@ public class SyncplayClient extends SyncClient<String> {
         try {
             log.info("Sending data: {}", data.serialize(Views.Client.class));
             send(data.serialize(Views.Client.class));
+            updateLastMessageSentTime();
         } catch (SerializationException e) {
             log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);
