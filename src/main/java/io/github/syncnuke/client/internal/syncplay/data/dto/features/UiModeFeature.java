@@ -34,14 +34,12 @@ import lombok.NoArgsConstructor;
 public class UiModeFeature extends Feature {
     /**
      * The type of UI used by the client.
-     * <p>
-     * Valid values:
+     * <p>Valid values:</p>
      * <ul>
      *     <li>"graphical" → GUI</li>
      *     <li>"console" → Console-based UI</li>
      *     <li>"unknown" → Unknown UI type</li>
      * </ul>
-     * </p>
      */
     private String mode;
 }
