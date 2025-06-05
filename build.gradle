@@ -1,0 +1,45 @@
+plugins {
+    id 'java'
+}
+
+group = 'io.github.syncnuke'
+version = '1.0-SNAPSHOT'
+description = 'A library synchronizing video playback over the internet'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Jackson
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.36'
+    annotationProcessor 'org.projectlombok:lombok:1.18.36'
+
+    // SLF4J
+    implementation 'org.slf4j:slf4j-api:2.0.17'
+
+    // Logback
+    implementation 'ch.qos.logback:logback-classic:1.5.17'
+}
+
+jar {
+    manifest {
+        attributes(
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version,
+                'Specification-Title': project.name,
+                'Specification-Version': project.version
+        )
+    }
+}
