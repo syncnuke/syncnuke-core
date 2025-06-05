@@ -14,7 +14,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class DataSaverClient extends SyncClient<BaseData> {
 
-    private final ThreadLocal<Boolean> serverCommandInProgress = ThreadLocal.withInitial(() -> false);
+    private final ThreadLocal<Boolean> serverCommandInProgress = new ThreadLocal<Boolean>() {
+        @Override
+        protected Boolean initialValue() {
+            return false;
+        }
+    };
+
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final int debounceDelay; // in milliseconds
 

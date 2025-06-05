@@ -58,13 +58,15 @@ public class SyncplayClient extends SyncClient<String> {
         log.info("Server response: {}", line);
         try {
             Optional<BaseData> response = dataProcessor.get(line);
-            if (response.isEmpty()) {
+            if (!response.isPresent()) {
                 throw new RuntimeException("No command found in: " + line);
             }
             BaseData data = response.get();
-            if (data instanceof StateData stateData) {
+            if (data instanceof StateData) {
+                StateData stateData = (StateData) data;
                 handleStateUpdate(stateData);
-            } else if (data instanceof SetData setData) {
+            } else if (data instanceof SetData) {
+                SetData setData = (SetData) data;
                 handleSetUpdate(setData);
             }
         } catch (Exception e) {
