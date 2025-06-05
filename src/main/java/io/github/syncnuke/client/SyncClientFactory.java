@@ -19,7 +19,7 @@ public class SyncClientFactory {
      * @return a SyncClient implementation for the requested protocol
      * @throws IllegalArgumentException if the protocol is not supported
      */
-    public static SyncClient createClient(String protocol, String host, int port, VideoPlayer videoPlayer) {
+    public static SyncClient<?> createClient(String protocol, String host, int port, VideoPlayer videoPlayer) {
         return switch (protocol.toLowerCase()) {
             case "syncplay" -> new SyncplayClient(host, port, videoPlayer);
             case "datasaver" -> new DataSaverClient(host, port, videoPlayer);
