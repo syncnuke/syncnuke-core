@@ -8,7 +8,6 @@ import syncnuke.client.datasaver.data.Command;
 import syncnuke.client.datasaver.data.State;
 import syncnuke.player.VideoPlayer;
 
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
