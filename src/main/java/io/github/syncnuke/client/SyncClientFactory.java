@@ -1,13 +1,13 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.client.datasaver.DataSaverClient;
-import io.github.syncnuke.client.syncplay.SyncplayClient;
+import io.github.syncnuke.client.internal.datasaver.DataSaverClient;
+import io.github.syncnuke.client.internal.syncplay.SyncplayClient;
 import io.github.syncnuke.player.VideoPlayer;
 
 /**
  * Factory for creating SyncClient instances based on the specified protocol.
  */
-public class SyncClientFactory {
+class SyncClientFactory {
 
     /**
      * Creates a SyncClient instance based on the specified protocol.
