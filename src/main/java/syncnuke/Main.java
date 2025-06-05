@@ -3,8 +3,7 @@ package syncnuke;
 import lombok.Data;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
-import syncnuke.client.SyncClient;
-import syncnuke.client.SyncClientFactory;
+import syncnuke.client.SyncManager;
 import syncnuke.player.MpvPlayer;
 import syncnuke.player.VideoPlayer;
 
@@ -29,14 +28,12 @@ public class Main {
         Environment env = parseArguments(args);
         CountDownLatch latch = new CountDownLatch(1);
 
-        try (VideoPlayer videoPlayer = getVideoPlayer();
-             SyncClient client = getSyncClient(env, videoPlayer)) {
+        try (VideoPlayer videoPlayer = getVideoPlayer()) {
 
-            client.login("user", "room");
+            startSyncClient(env, videoPlayer);
             videoPlayer.load(env.getFilePath());
 
             // Wait for client to close before terminating
-            Runtime.getRuntime().addShutdownHook(new Thread(client::close));
             latch.await();
         } catch (IOException exception) {
             logger.error("Error initializing MPV player: {}", exception.getMessage());
@@ -47,12 +44,14 @@ public class Main {
         }
     }
 
-    private static SyncClient getSyncClient(Environment env, VideoPlayer videoPlayer) {
-        return SyncClientFactory.createClient(
+    private static void startSyncClient(Environment env, VideoPlayer videoPlayer) {
+        SyncManager syncManager = SyncManager.getInstance(videoPlayer);
+        syncManager.start(
                 env.getProtocol(),
                 env.getHost(),
                 env.getPort(),
-                videoPlayer
+                "user",
+                "room"
         );
     }
 

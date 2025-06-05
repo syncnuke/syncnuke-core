@@ -21,13 +21,12 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     protected SyncClient(String host, int port, Codec<T> codec, VideoPlayer videoPlayer) {
         super(host, port, codec);
         this.videoPlayer = videoPlayer;
-        this.videoPlayer.setEventListener(this);
     }
 
     public abstract void login(String username, String room);
 
     /**
-     * Used to filter out video state updates that are too minor to tigger server notifications.
+     * Used to filter out video state updates that are too minor to trigger server notifications.
      * @param currentStatus     the status of the video player in number format
      * @param currentProgress   the current progress of the video player
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
