@@ -7,6 +7,7 @@ import io.github.syncnuke.client.internal.syncplay.data.dto.FileData;
 import io.github.syncnuke.client.internal.syncplay.data.dto.commands.HelloData;
 import io.github.syncnuke.client.internal.syncplay.data.dto.commands.SetData;
 import io.github.syncnuke.client.internal.syncplay.data.dto.commands.StateData;
+import io.github.syncnuke.client.internal.syncplay.data.dto.misc.ReadyData;
 import io.github.syncnuke.client.internal.syncplay.data.dto.view.Views;
 import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
@@ -241,6 +242,14 @@ public class SyncplayClient extends SyncClient<String> {
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
 //            load(file.getName()); // TODO: Ensure this only runs when switching files
+        } else {
+            // {"Set": {"ready": {"username": "testme", "isReady": true, "manuallyInitiated": false}}}
+            // TODO: Remove this and find a better way to handle playback start
+            ReadyData readyData = setData.getReady();
+            if (readyData != null && readyData.isReady()) {
+                play();
+                state.getPlaystate().setPaused(isPaused());
+            }
         }
     }
 
@@ -248,6 +257,10 @@ public class SyncplayClient extends SyncClient<String> {
         if (file != null) {
             SetData setData = new SetData();
             setData.setFile(file);
+            ReadyData readyData = new ReadyData();
+            readyData.setUsername(username);
+            readyData.setReady(true);
+            setData.setReady(readyData);
             send(setData);
             log.info("Acknowledged file: {}", setData.getFile());
         }
