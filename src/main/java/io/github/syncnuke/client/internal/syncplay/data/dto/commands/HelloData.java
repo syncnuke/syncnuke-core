@@ -33,8 +33,8 @@ public class HelloData extends BaseData {
     private Map<String, Object> features;
 
     @JsonProperty("realversion")
-    @JsonView(Views.Server.class)
-    private String realVersion = "1.3.0"; // Actual Syncplay version
+    @JsonView(Views.Client.class)
+    private String realVersion = "1.7.0"; // Actual Syncplay version
     @JsonView(Views.Server.class)
     private String motd;
 
@@ -46,8 +46,11 @@ public class HelloData extends BaseData {
 
     private void initFeatures() {
         features = new HashMap<>();
-        features.put("uiMode", new UiModeFeature("console"));
-        features.put("readiness", new ReadinessFeature(false));
+//        features.put("uiMode", new UiModeFeature("console"));
+        features.put("featureList", true);
+        features.put("readiness", true);
+        features.put("managedRooms", false);
+        features.put("chat", true);
     }
 
 }
