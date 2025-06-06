@@ -1,44 +1,44 @@
 package io.github.syncnuke.client.internal.syncplay.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
+import com.google.protobuf.Message;
 import io.github.syncnuke.client.internal.syncplay.data.Command;
-import io.github.syncnuke.client.internal.syncplay.data.BaseData;
+import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
+import lombok.extern.slf4j.Slf4j;
+import pl.syncplay.proto.SyncplayProto;
 
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 @Slf4j
-public class DataProcessor {
+public final class DataProcessor {
 
-    private static final ObjectMapper mapper = new ObjectMapper();
+    /** Return the (command,message) pair or {@code Optional.empty()} if unknown. */
+    public Optional<CommandMessage> get(SyncplayProto.SyncplayMessage envelope) {
 
-    public Optional<BaseData> get(String json) {
-        try {
-            JsonNode jsonNode = mapper.readTree(json);
+        SyncplayProto.SyncplayMessage.BodyCase bc = envelope.getBodyCase();
+        if (bc == SyncplayProto.SyncplayMessage.BodyCase.BODY_NOT_SET) {
+            return Optional.empty();
+        }
 
-            for (Command command : Command.values()) {
-                if (jsonNode.has(command.getName())) {
-                    return Optional.of(getObject(jsonNode, command.getName(), command.getDataClass()));
+        // "HELLO" -> "Hello", etc.
+        String key = bc.name().charAt(0) + bc.name().substring(1).toLowerCase();
+
+        for (Command cmd : Command.values()) {
+            if (cmd.getName().equals(key)) {
+                try {
+                    // invoke envelope.getHello(), getState(), getSet(), …
+                    Method getter = envelope.getClass().getMethod("get" + key);
+                    Message inner = (Message) getter.invoke(envelope);
+                    return Optional.of(new CommandMessage(cmd, inner));
+                } catch (ReflectiveOperationException e) {
+                    log.error("Failed to extract {}", key, e);
+                    return Optional.empty();
                 }
             }
-
-            log.warn("Did not have a command for : {}", json);
-
-        } catch (JsonProcessingException e) {
-            log.error("Failed to parse JSON: {}", e.getMessage());
         }
 
+        log.warn("No Command enum constant for top-level key '{}'", key);
         return Optional.empty();
-
-    }
-
-    private BaseData getObject(JsonNode jsonNode, String fieldName, Class<? extends BaseData> dataClass) throws JsonProcessingException {
-        if (!jsonNode.has(fieldName)) {
-            throw new IllegalArgumentException("JSON does not contain field name: " + fieldName);
-        }
-        return mapper.treeToValue(jsonNode.get(fieldName), dataClass);
     }
 
 }

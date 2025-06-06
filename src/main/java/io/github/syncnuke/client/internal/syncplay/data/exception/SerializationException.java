@@ -6,4 +6,8 @@ public class SerializationException extends RuntimeException {
         super("Failed to serialize data", cause);
     }
 
+    public SerializationException(String message) {
+        super(message);
+    }
+
 }

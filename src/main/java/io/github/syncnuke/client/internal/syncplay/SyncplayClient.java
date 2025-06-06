@@ -1,24 +1,20 @@
 package io.github.syncnuke.client.internal.syncplay;
 
+import com.google.protobuf.Message;
 import io.github.syncnuke.client.SyncClient;
-import io.github.syncnuke.client.internal.syncplay.data.BaseData;
-import io.github.syncnuke.client.internal.syncplay.data.StringCodec;
-import io.github.syncnuke.client.internal.syncplay.data.dto.FileData;
-import io.github.syncnuke.client.internal.syncplay.data.dto.commands.HelloData;
-import io.github.syncnuke.client.internal.syncplay.data.dto.commands.SetData;
-import io.github.syncnuke.client.internal.syncplay.data.dto.commands.StateData;
-import io.github.syncnuke.client.internal.syncplay.data.dto.misc.ReadyData;
-import io.github.syncnuke.client.internal.syncplay.data.dto.view.Views;
+import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
+import io.github.syncnuke.client.internal.syncplay.data.ProtoJsonCodec;
 import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
 import io.github.syncnuke.player.VideoPlayer;
 import lombok.extern.slf4j.Slf4j;
+import pl.syncplay.proto.SyncplayProto.*;
 
 import java.util.Optional;
 
 @Slf4j
-public class SyncplayClient extends SyncClient<String> {
+public class SyncplayClient extends SyncClient<SyncplayMessage> {
     private static final int DEFAULT_PORT = 8999;
     private static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
@@ -26,8 +22,8 @@ public class SyncplayClient extends SyncClient<String> {
     private FileDataExtractor fileDataExtractor;
 
     // Current state of our client and player
-    private final StateData state;
-    private FileData file;
+    private final StateMessage.Builder state;
+    private FileInfo file;
 
     private String username;
 
@@ -40,9 +36,12 @@ public class SyncplayClient extends SyncClient<String> {
     }
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
-        super(host, port, new StringCodec(), 1000, videoPlayer);
+        super(host, port, new ProtoJsonCodec(), 1000, videoPlayer);
         this.dataProcessor = dataProcessor;
-        state = new StateData(0, true, false, null);
+        state = StateMessage.newBuilder().setPlaystate(PlayState.newBuilder()
+                .setPaused(true)
+                .setDoSeek(false))
+        ;
     }
 
     @Override
@@ -50,25 +49,37 @@ public class SyncplayClient extends SyncClient<String> {
         this.username = username;
         fileDataExtractor = new FileDataExtractor(username);
         // Announce ourselves to the server and join the room
-        send(new HelloData(username, room));
-        state.getPlaystate().setSetBy(username);
+        HelloMessage hello =
+                HelloMessage.newBuilder()
+                        .setUsername(username)
+                        .setRoom(RoomInfo.newBuilder().setName(room).build())
+                        .setVersion("1.2.255")
+//                        .setFeatures("readiness",  SyncplayProto.AnyValue.newBuilder()
+//                                .setBoolValue(true).build())
+                        .build();
+        send(hello);
+        state.getPlaystateBuilder().setSetBy(username);
     }
 
     @Override
-    protected void handleResponse(String line) {
-        log.info("Server response: {}", line);
+    protected void handleResponse(SyncplayMessage msg) {
+        log.info("Server response: {}", msg);
         try {
-            Optional<BaseData> response = dataProcessor.get(line);
+
+            Optional<CommandMessage> response = dataProcessor.get(msg);
             if (!response.isPresent()) {
-                throw new RuntimeException("No command found in: " + line);
+                throw new RuntimeException("No command found in: " + msg);
             }
-            BaseData data = response.get();
-            if (data instanceof StateData) {
-                StateData stateData = (StateData) data;
-                handleStateUpdate(stateData);
-            } else if (data instanceof SetData) {
-                SetData setData = (SetData) data;
-                handleSetUpdate(setData);
+            CommandMessage data = response.get();
+            switch (data.getCommand()) {        // classic Java-8 switch
+                case STATE:
+                    handleStateUpdate((StateMessage) data.getMessage());
+                    break;
+                case SET:
+                    handleSetUpdate((SetCommand) data.getMessage());
+                    break;
+                default:
+                    log.debug("Ignoring {}", data.getCommand());
             }
         } catch (Exception e) {
             log.error("Failed to parse server response", e);
@@ -82,8 +93,8 @@ public class SyncplayClient extends SyncClient<String> {
         double position = getPosition();
         if (isSignificantChange(currentStatus, position)) {
             log.info("Play command sent due to significant change");
-            state.getPlaystate().setPosition(position);
-            state.getPlaystate().setPaused(false);
+            state.getPlaystateBuilder().setPosition(position);
+            state.getPlaystateBuilder().setPaused(false);
             acknowledgeState();
         }
         updateTracking(currentStatus, position);
@@ -96,8 +107,8 @@ public class SyncplayClient extends SyncClient<String> {
         double position = getPosition();
         if (isSignificantChange(currentStatus, position)) {
             log.info("Pause command sent due to significant change");
-            state.getPlaystate().setPosition(position);
-            state.getPlaystate().setPaused(true);
+            state.getPlaystateBuilder().setPosition(position);
+            state.getPlaystateBuilder().setPaused(true);
             acknowledgeState();
         }
         updateTracking(currentStatus, position);
@@ -113,8 +124,8 @@ public class SyncplayClient extends SyncClient<String> {
         int currentStatus = isPaused() ? PAUSE_STATUS : PLAY_STATUS;
         if (isSignificantChange(currentStatus, position)) {
             log.info("Seek command sent due to significant change");
-            state.getPlaystate().setPosition(position);
-            state.getPlaystate().setDoSeek(true);
+            state.getPlaystateBuilder().setPosition(position);
+            state.getPlaystateBuilder().setDoSeek(true);
             acknowledgeState();
         }
         updateTracking(currentStatus, position);
@@ -124,25 +135,25 @@ public class SyncplayClient extends SyncClient<String> {
     protected void sendKeepAlive() {
         boolean isPaused = isPaused();
         double position = getPosition();
-        state.getPlaystate().setPaused(isPaused);
-        state.getPlaystate().setPosition(position);
-        send(state);
+        state.getPlaystateBuilder().setPaused(isPaused);
+        state.getPlaystateBuilder().setPosition(position);
+        send(state.build());
         updateTracking(isPaused ? PAUSE_STATUS : PLAY_STATUS, position);
     }
 
     /**
      * Processes a 'State' command from the server.
      */
-    private void handleStateUpdate(StateData stateData) {
+    private void handleStateUpdate(StateMessage stateData) {
         updatePing(stateData);
 
         if (wasSentByUs(stateData)) {
             // The server is telling us about our update to get on the same page
             updateIgnoringOnTheFly(stateData);
             // TODO: Test the effect of this in client timeouts, might work better without
-            if (stateData.getPlaystate().isDoSeek()) {
+            if (stateData.getPlaystate().getDoSeek()) {
                 log.debug("Server acknowledged our seek request");
-                state.getPlaystate().setDoSeek(false);
+                state.getPlaystateBuilder().setDoSeek(false);
             }
             acknowledgeState();
             return;
@@ -150,24 +161,24 @@ public class SyncplayClient extends SyncClient<String> {
 
         updatePlayState(stateData);
         updateIgnoringOnTheFly(stateData);
-        if (stateData.getPlaystate().isDoSeek()) {
+        if (stateData.getPlaystate().getDoSeek()) {
             // We need to acknowledge twice to prove we've executed the seek
             acknowledgeState();
-            state.getPlaystate().setDoSeek(false);
+            state.getPlaystateBuilder().setDoSeek(false);
         }
         acknowledgeState();
     }
 
-    private boolean wasSentByUs(StateData stateData) {
-        if (stateData == null || stateData.getPlaystate() == null) {
+    private boolean wasSentByUs(StateMessage stateData) {
+        if (stateData == null || !stateData.hasPlaystate()) {
             return false;
         }
         return username.equals(stateData.getPlaystate().getSetBy());
     }
 
-    private void updatePlayState(StateData stateData) {
+    private void updatePlayState(StateMessage stateData) {
         boolean wasPaused = isPaused();
-        boolean isPaused = stateData.getPlaystate().isPaused();
+        boolean isPaused = stateData.getPlaystate().getPaused();
 
         if (isPaused && !wasPaused) {
             pause();
@@ -175,59 +186,58 @@ public class SyncplayClient extends SyncClient<String> {
             play();
         }
 
-        state.getPlaystate().setPaused(stateData.getPlaystate().isPaused());
-        state.getPlaystate().setDoSeek(stateData.getPlaystate().isDoSeek());
+        state.getPlaystateBuilder().setPaused(stateData.getPlaystate().getPaused());
+        state.getPlaystateBuilder().setDoSeek(stateData.getPlaystate().getDoSeek());
 
         // Handle seeking
-        if (stateData.getPlaystate().isDoSeek()) {
+        if (stateData.getPlaystate().getDoSeek()) {
             log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
-            state.getPlaystate().setPosition(stateData.getPlaystate().getPosition());
+            state.getPlaystateBuilder().setPosition(stateData.getPlaystate().getPosition());
             seek(state.getPlaystate().getPosition());
         }
     }
 
-    private void updateIgnoringOnTheFly(StateData stateData) {
-        if (state.getIgnoringOnTheFly() == null) {
-            state.setIgnoringOnTheFly(new StateData.IgnoringOnTheFly(0, 0));
+    private void updateIgnoringOnTheFly(StateMessage stateData) {
+        if (!state.hasIgnoringOnTheFly()) {
+            state.setIgnoringOnTheFly(state.getIgnoringOnTheFlyBuilder().clear());
         }
-        if (stateData.getIgnoringOnTheFly() != null) {
+        if (stateData.hasIgnoringOnTheFly()) {
             int dataServerCount = stateData.getIgnoringOnTheFly().getServer();
             int dataClientCount = stateData.getIgnoringOnTheFly().getClient();
 
             if (dataServerCount > dataClientCount) {
                 // Server told us to ignore more often, say ok by equalling the ignore counts
-                state.getIgnoringOnTheFly().setClient(dataServerCount);
-                state.getIgnoringOnTheFly().setServer(dataServerCount);
+                state.setIgnoringOnTheFly(state.getIgnoringOnTheFlyBuilder()
+                        .setClient(dataServerCount)
+                        .setServer(dataServerCount)
+                        .build()
+                );
             } else if (dataServerCount + dataClientCount == 0) {
                 // Server is acknowledging we both know we're back to listening to updates, remove ignore object from responses
-                state.setIgnoringOnTheFly(null);
+                state.clearIgnoringOnTheFly();
             } else {
                 // Server is telling us it knows we both want to listen to updates, give it the go ahead
-                state.getIgnoringOnTheFly().setServer(0);
-                state.getIgnoringOnTheFly().setClient(0);
+                state.setIgnoringOnTheFly(state.getIgnoringOnTheFlyBuilder().clear().build()); // 0, 0
             }
         } else {
-            state.setIgnoringOnTheFly(null);
+            state.clearIgnoringOnTheFly();
         }
     }
 
-    private void updatePing(StateData stateData) {
+    private void updatePing(StateMessage stateData) {
         double time = getNow();
-        state.getPing().setClientLatencyCalculation(time);
+        state.getPingBuilder().setClientLatencyCalculation(time);
         double sentTime = stateData.getPing().getClientLatencyCalculation();
         // Get difference between current time and the time we sent our previous request
-        double diff = time - sentTime;
-        if (diff < 0) {
-            diff = 0;
-        }
-        state.getPing().setClientRtt(diff);
+        double diff = Math.max(0, time - sentTime);
+        state.getPingBuilder().setClientRtt(diff);
     }
 
     private void acknowledgeState() {
         // TODO: Remove parsing from VideoPlayer if facing bugs
-        state.getPlaystate().setPaused(isPaused());
-        state.getPlaystate().setPosition(getPosition());
-        send(state);
+        state.getPlaystateBuilder().setPaused(isPaused());
+        state.getPlaystateBuilder().setPosition(getPosition());
+        send(state.build());
         updateLastMessageSentTime();
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
@@ -235,9 +245,9 @@ public class SyncplayClient extends SyncClient<String> {
     /**
      * Processes a 'Set' command from the server.
      */
-    private void handleSetUpdate(SetData setData) {
+    private void handleSetUpdate(SetCommand setData) {
         log.debug("Server set data: {}", setData);
-        FileData file = fileDataExtractor.extract(setData);
+        FileInfo file = fileDataExtractor.extract(setData);
         if (file != null) {
             this.file = file;
             acknowledgeFile();
@@ -246,31 +256,41 @@ public class SyncplayClient extends SyncClient<String> {
         } else {
             // {"Set": {"ready": {"username": "testme", "isReady": true, "manuallyInitiated": false}}}
             // TODO: Remove this and find a better way to handle playback start
-            ReadyData readyData = setData.getReady();
-            if (readyData != null && readyData.isReady()) {
+            if (setData.hasReady()) {
                 play();
-                state.getPlaystate().setPaused(isPaused());
+                state.getPlaystateBuilder().setPaused(isPaused());
             }
         }
     }
 
     private void acknowledgeFile() {
         if (file != null) {
-            SetData setData = new SetData();
+            SetCommand.Builder setData = SetCommand.newBuilder();
             setData.setFile(file);
-            ReadyData readyData = new ReadyData();
+            ReadySetting.Builder readyData = ReadySetting.newBuilder();
             readyData.setUsername(username);
-            readyData.setReady(true);
-            setData.setReady(readyData);
-            send(setData);
+            readyData.setIsReady(true);
+            setData.setReady(readyData.build());
+            send(setData.build());
             log.info("Acknowledged file: {}", setData.getFile());
         }
     }
 
-    public void send(BaseData data) {
+    public void send(Message data) {
         try {
-            log.info("Sending data: {}", data.serialize(Views.Client.class));
-            send(data.serialize(Views.Client.class));
+            SyncplayMessage.Builder env = SyncplayMessage.newBuilder();
+            if (data instanceof HelloMessage) {
+                env.setHello((HelloMessage) data);
+            } else if (data instanceof StateMessage) {
+                env.setState((StateMessage) data);
+            } else if (data instanceof SetCommand) {
+                env.setSet((SetCommand) data);
+            } else {
+                throw new SerializationException("Unsupported message: " + data.getClass());
+            }
+            SyncplayMessage msg = env.build();
+            log.info("Sending data: {}", msg);
+            super.send(msg);
         } catch (SerializationException e) {
             log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);
