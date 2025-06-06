@@ -40,7 +40,7 @@ public class SyncplayClient extends SyncClient<String> {
     }
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
-        super(host, port, new StringCodec(), videoPlayer);
+        super(host, port, new StringCodec(), 1000, videoPlayer);
         this.dataProcessor = dataProcessor;
         state = new StateData(0, true, false, null);
     }
@@ -228,6 +228,7 @@ public class SyncplayClient extends SyncClient<String> {
         state.getPlaystate().setPaused(isPaused());
         state.getPlaystate().setPosition(getPosition());
         send(state);
+        updateLastMessageSentTime();
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 
@@ -270,7 +271,6 @@ public class SyncplayClient extends SyncClient<String> {
         try {
             log.info("Sending data: {}", data.serialize(Views.Client.class));
             send(data.serialize(Views.Client.class));
-            updateLastMessageSentTime();
         } catch (SerializationException e) {
             log.error(e.getMessage(), e.getCause());
             throw new RuntimeException(e);

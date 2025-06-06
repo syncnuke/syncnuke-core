@@ -26,9 +26,8 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     // KeepAlive handling
     private final ScheduledExecutorService keepAliveScheduler;
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
-    private static final long KEEP_ALIVE_INTERVAL = 10000; // in milliseconds
 
-    protected SyncClient(String host, int port, Codec<T> codec, VideoPlayer videoPlayer) {
+    protected SyncClient(String host, int port, Codec<T> codec, int keepAliveInterval, VideoPlayer videoPlayer) {
         super(host, port, codec);
         this.videoPlayer = videoPlayer;
 
@@ -37,22 +36,21 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
             thread.setDaemon(true);
             return thread;
         });
-        startKeepAliveTask();
+        startKeepAliveTask(keepAliveInterval);
     }
 
-    private void startKeepAliveTask() {
+    private void startKeepAliveTask(int keepAliveInterval) {
         keepAliveScheduler.scheduleWithFixedDelay(() -> {
             try {
-                // Only send a keepAlive if there hasn't been a message sent recently
                 long timeSinceLastMessage = System.currentTimeMillis() - lastMessageSentTime.get();
-                if (timeSinceLastMessage > KEEP_ALIVE_INTERVAL / 2) {
+                if (timeSinceLastMessage > keepAliveInterval) {
                     log.debug("Sending keepAlive to maintain connection");
                     sendKeepAlive();
                 }
             } catch (Exception e) {
                 log.error("Error sending keepAlive message", e);
             }
-        }, KEEP_ALIVE_INTERVAL / 2, KEEP_ALIVE_INTERVAL, TimeUnit.MILLISECONDS);
+        }, keepAliveInterval, keepAliveInterval, TimeUnit.MILLISECONDS);
     }
 
     public abstract void login(String username, String room);

@@ -25,7 +25,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private final int debounceDelay; // in milliseconds
 
     public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
-        super(host, port, new BaseCodec(), videoPlayer);
+        super(host, port, new BaseCodec(), 10000, videoPlayer);
         this.debounceDelay = debounceDelay;
     }
 
