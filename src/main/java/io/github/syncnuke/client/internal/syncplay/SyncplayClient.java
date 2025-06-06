@@ -1,6 +1,5 @@
 package io.github.syncnuke.client.internal.syncplay;
 
-import lombok.extern.slf4j.Slf4j;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.syncplay.data.BaseData;
 import io.github.syncnuke.client.internal.syncplay.data.StringCodec;
@@ -13,6 +12,7 @@ import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationE
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
 import io.github.syncnuke.player.VideoPlayer;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
@@ -78,26 +78,28 @@ public class SyncplayClient extends SyncClient<String> {
     public void onPlay() {
         log.debug("Play event detected");
         int currentStatus = PLAY_STATUS;
-        double currentProgress = getPosition();
-        if (isSignificantChange(currentStatus, currentProgress)) {
+        double position = getPosition();
+        if (isSignificantChange(currentStatus, position)) {
             log.info("Play command sent due to significant change");
+            state.getPlaystate().setPosition(position);
             state.getPlaystate().setPaused(false);
             acknowledgeState();
         }
-        updateTracking(currentStatus, currentProgress);
+        updateTracking(currentStatus, position);
     }
 
     @Override
     public void onPause() {
         log.debug("Pause event detected");
         int currentStatus = PAUSE_STATUS;
-        double currentProgress = getPosition();
-        if (isSignificantChange(currentStatus, currentProgress)) {
+        double position = getPosition();
+        if (isSignificantChange(currentStatus, position)) {
             log.info("Pause command sent due to significant change");
+            state.getPlaystate().setPosition(position);
             state.getPlaystate().setPaused(true);
             acknowledgeState();
         }
-        updateTracking(currentStatus, currentProgress);
+        updateTracking(currentStatus, position);
     }
 
     @Override
@@ -119,12 +121,12 @@ public class SyncplayClient extends SyncClient<String> {
 
     @Override
     protected void sendKeepAlive() {
-        boolean status = isPaused();
+        boolean isPaused = isPaused();
         double position = getPosition();
-        state.getPlaystate().setPaused(status);
+        state.getPlaystate().setPaused(isPaused);
         state.getPlaystate().setPosition(position);
         send(state);
-        updateTracking(status ? 0 : 1, position);
+        updateTracking(isPaused ? PAUSE_STATUS : PLAY_STATUS, position);
     }
 
     /**
@@ -163,7 +165,7 @@ public class SyncplayClient extends SyncClient<String> {
     }
 
     private void updatePlayState(StateData stateData) {
-        boolean wasPaused = state.getPlaystate().isPaused();
+        boolean wasPaused = isPaused();
         boolean isPaused = stateData.getPlaystate().isPaused();
 
         if (isPaused && !wasPaused) {
@@ -221,6 +223,9 @@ public class SyncplayClient extends SyncClient<String> {
     }
 
     private void acknowledgeState() {
+        // TODO: Remove parsing from VideoPlayer if facing bugs
+        state.getPlaystate().setPaused(isPaused());
+        state.getPlaystate().setPosition(getPosition());
         send(state);
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
@@ -235,7 +240,7 @@ public class SyncplayClient extends SyncClient<String> {
             this.file = file;
             acknowledgeFile();
             log.info("File set by server: {}", file.getName());
-            load(file.getName()); // TODO: Ensure this only runs when switching files
+//            load(file.getName()); // TODO: Ensure this only runs when switching files
         }
     }
 
