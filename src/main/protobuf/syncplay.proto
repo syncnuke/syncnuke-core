@@ -114,10 +114,10 @@ message PlayState {
 }
 
 message Ping {
-  int64  latency_calculation       = 1;
-  int64  client_latency_calculation = 2;
-  double client_rtt                = 3;
-  double server_rtt                = 4;
+  double  latency_calculation         = 1;
+  double  client_latency_calculation  = 2;
+  double client_rtt                   = 3;
+  double server_rtt                   = 4;
 }
 
 message Ignoring {
