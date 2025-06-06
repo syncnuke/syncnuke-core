@@ -6,12 +6,15 @@ import java.io.*;
 
 public class StringCodec implements Codec<String> {
 
+    private final String LINE_SEPARATOR = "\r\n";
+
     @Override
     public byte[] encode(String value) {
         if (value == null) {
             throw new IllegalArgumentException("Attempting to encode a null value");
         }
-        return value.getBytes();
+        String msg = value + LINE_SEPARATOR;
+        return msg.getBytes();
     }
 
     @Override
