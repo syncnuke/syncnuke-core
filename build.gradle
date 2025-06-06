@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.google.protobuf' version '0.9.4'
 }
 
 group = 'io.github.syncnuke'
@@ -10,7 +11,6 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
-    withSourcesJar()
     withJavadocJar()
 }
 
@@ -32,6 +32,33 @@ dependencies {
     // Tinylog
     implementation 'org.tinylog:tinylog-impl:2.7.0'
     implementation 'org.tinylog:slf4j-tinylog:2.7.0'
+
+    // Protobuf
+    implementation 'com.google.protobuf:protobuf-java:4.31.1'
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:4.31.1'
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java { }
+            }
+        }
+    }
+}
+
+sourceSets {
+    main {
+        proto {
+            srcDir 'src/main/protobuf'
+        }
+        java {
+            srcDirs 'build/generated/source/proto/main/java'
+        }
+    }
 }
 
 jar {
