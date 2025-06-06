@@ -1,21 +1,9 @@
 package io.github.syncnuke.client.internal.syncplay;
 
-/*
- * MinimalSyncplayClient.java  (Jackson edition)
- *
- * Compile (Unix/Mac):
- *   javac -cp jackson-core-2.17.1.jar:jackson-databind-2.17.1.jar MinimalSyncplayClient.java
- *
- * Run:
- *   java -cp .:jackson-core-2.17.1.jar:jackson-databind-2.17.1.jar \
- *        MinimalSyncplayClient <host> <port> <user> <room> [<plainPwd>]
- *
- * Required JARs
- *   ├─ jackson-core-2.x.y.jar
- *   └─ jackson-databind-2.x.y.jar   (brings jackson-annotations as a transitive dep)
- */
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.protobuf.util.JsonFormat;
+import pl.syncplay.proto.SyncplayProto;
 
 import java.io.*;
 import java.net.Socket;
@@ -24,8 +12,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 public class MinimalSyncplayClient {
-
-    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public static void main(String[] args) throws Exception {
         if (args.length < 4) {
@@ -45,25 +31,31 @@ public class MinimalSyncplayClient {
                 new InputStreamReader(sock.getInputStream(),  StandardCharsets.UTF_8));
 
         /* -------- send Hello -------- */
-        ObjectNode hello = MAPPER.createObjectNode();
-        hello.put("username", username);
-        ObjectNode roomObj = MAPPER.createObjectNode();
-        roomObj.put("name", room);
-        hello.set("room", roomObj);
-        if (!password.isEmpty()) hello.put("password", password);
-        hello.put("version",     "1.2.255");
-        hello.put("realversion", "1.7.0");
+        SyncplayProto.RoomInfo roomInfo = SyncplayProto.RoomInfo.newBuilder()
+                .setName(room)
+                .build();
 
-        ObjectNode feats = MAPPER.createObjectNode();
-        feats.put("featureList",  true);
-        feats.put("readiness",    true);
-        feats.put("managedRooms", false);
-        feats.put("chat",         true);
-        hello.set("features", feats);
+        SyncplayProto.Features features = SyncplayProto.Features.newBuilder()
+                .setFeatureList(true)
+                .setReadiness(true)
+                .setManagedRooms(false)
+                .setChat(true)
+                .build();
 
-        ObjectNode wrapper = MAPPER.createObjectNode();
-        wrapper.set("Hello", hello);
-        sendJson(wrapper, out);
+        SyncplayProto.HelloMessage helloMessage = SyncplayProto.HelloMessage.newBuilder()
+                .setUsername(username)
+                .setRoom(roomInfo)
+                .setVersion("1.2.255")
+                .setRealversion("1.7.0")
+                .setFeatures(features)
+                .setPassword(password)
+                .build();
+
+        SyncplayProto.SyncplayMessage message = SyncplayProto.SyncplayMessage.newBuilder()
+                .setHello(helloMessage)
+                .build();
+
+        sendProtoAsJson(message, out);
 
         System.out.println("Sent Hello; waiting for server messages…");
 
@@ -80,12 +72,46 @@ public class MinimalSyncplayClient {
         }, "SyncplayReader").start();
     }
 
-    private static void sendJson(ObjectNode obj, BufferedWriter out) throws IOException {
-        System.out.println(MAPPER.writeValueAsString(obj));
-        out.write(MAPPER.writeValueAsString(obj));
+    private static void sendProtoAsJson(SyncplayProto.SyncplayMessage msg, BufferedWriter out) throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        ObjectNode wrapper = mapper.createObjectNode();
+
+        JsonFormat.Printer printer = JsonFormat.printer().omittingInsignificantWhitespace();
+
+        // Reflectively get which `oneof` is set
+        SyncplayProto.SyncplayMessage.BodyCase bodyCase = msg.getBodyCase();
+        if (bodyCase == SyncplayProto.SyncplayMessage.BodyCase.BODY_NOT_SET) {
+            throw new IllegalArgumentException("SyncplayMessage has no set body");
+        }
+
+        // Get the method name and actual inner message
+        String fieldName = bodyCase.name(); // e.g., "HELLO", "SET", ...
+        String jsonKey = capitalizeFirst(fieldName.toLowerCase()); // → "Hello", "Set", etc.
+
+        // Use reflection to get the actual message from msg (e.g., getHello(), getSet(), etc.)
+        String getterName = "get" + jsonKey;
+        try {
+            com.google.protobuf.Message innerMsg =
+                    (com.google.protobuf.Message) SyncplayProto.SyncplayMessage.class
+                            .getMethod(getterName)
+                            .invoke(msg);
+
+            wrapper.set(jsonKey, mapper.readTree(printer.print(innerMsg)));
+        } catch (ReflectiveOperationException e) {
+            throw new IOException("Failed to extract inner message via reflection", e);
+        }
+
+        String finalJson = mapper.writeValueAsString(wrapper);
+        System.out.println(finalJson);
+        out.write(finalJson);
         out.write("\r\n");
         out.flush();
     }
+
+    private static String capitalizeFirst(String input) {
+        return input.isEmpty() ? input : input.substring(0, 1).toUpperCase() + input.substring(1);
+    }
+
 
     /** Plain MD5, because Syncplay still expects it */
     private static String md5Hex(String s) {
