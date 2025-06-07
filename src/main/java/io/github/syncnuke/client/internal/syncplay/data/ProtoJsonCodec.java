@@ -64,6 +64,20 @@ public final class ProtoJsonCodec implements Codec<SyncplayMessage> {
         return envelope.build();
     }
 
+    public static String raw(SyncplayMessage envelope) {
+        try {
+            String jsonKey = capital(envelope.getBodyCase().name().toLowerCase());
+            Message inner  = (Message) SyncplayMessage.class
+                    .getMethod("get" + jsonKey)
+                    .invoke(envelope);
+            JsonNode wrapper = MAPPER.createObjectNode()
+                    .set(jsonKey, MAPPER.readTree(PRINTER.print(inner)));
+            return MAPPER.writeValueAsString(wrapper);      // no CRLF
+        } catch (Exception e) {
+            return "⚠️ cannot render message";
+        }
+    }
+
     private static String capital(String s) {
         return s.substring(0,1).toUpperCase() + s.substring(1);
     }

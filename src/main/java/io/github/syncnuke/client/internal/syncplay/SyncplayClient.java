@@ -56,7 +56,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
 
     @Override
     protected void handleResponse(SyncplayMessage msg) {
-        log.info("Server response: {}", msg);
+        log.info("Server response: {}", ProtoJsonCodec.raw(msg));
         try {
 
             Optional<CommandMessage> response = dataProcessor.get(msg);
@@ -282,7 +282,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
                 throw new SerializationException("Unsupported message: " + data.getClass());
             }
             SyncplayMessage msg = env.build();
-            log.info("Sending data: {}", msg);
+            log.info("Sending data: {}", ProtoJsonCodec.raw(msg));
             super.send(msg);
         } catch (SerializationException e) {
             log.error(e.getMessage(), e.getCause());
