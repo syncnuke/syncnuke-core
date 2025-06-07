@@ -11,6 +11,7 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(8)
     }
+    withSourcesJar()
     withJavadocJar()
 }
 
@@ -54,9 +55,6 @@ sourceSets {
     main {
         proto {
             srcDir 'src/main/protobuf'
-        }
-        java {
-            srcDirs 'build/generated/source/proto/main/java'
         }
     }
 }
