@@ -4,6 +4,7 @@ import com.google.protobuf.Message;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
 import io.github.syncnuke.client.internal.syncplay.data.ProtoJsonCodec;
+import io.github.syncnuke.client.internal.syncplay.data.builder.HelloMessageBuilder;
 import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
@@ -49,15 +50,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         this.username = username;
         fileDataExtractor = new FileDataExtractor(username);
         // Announce ourselves to the server and join the room
-        HelloMessage hello =
-                HelloMessage.newBuilder()
-                        .setUsername(username)
-                        .setRoom(RoomInfo.newBuilder().setName(room).build())
-                        .setVersion("1.2.255")
-//                        .setFeatures("readiness",  SyncplayProto.AnyValue.newBuilder()
-//                                .setBoolValue(true).build())
-                        .build();
-        send(hello);
+        send(HelloMessageBuilder.create(username, room).build());
         state.getPlaystateBuilder().setSetBy(username);
     }
 
