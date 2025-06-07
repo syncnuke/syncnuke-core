@@ -18,7 +18,7 @@ public final class ProtoJsonCodec implements Codec<SyncplayMessage> {
     private static final String LF = "\r\n";
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final JsonFormat.Printer PRINTER =
-            JsonFormat.printer().omittingInsignificantWhitespace();
+            JsonFormat.printer().alwaysPrintFieldsWithNoPresence().omittingInsignificantWhitespace();
     private static final JsonFormat.Parser PARSER =
             JsonFormat.parser().ignoringUnknownFields();
 
