@@ -24,9 +24,10 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
     private volatile double prevProgress = 0;
     private volatile long prevProgTime = System.currentTimeMillis();
-    private static final double DRIFT_THRESHOLD = 0.1; // 100ms threshold for drift detection
-    private static final long MIN_DIFF = (long) (DRIFT_THRESHOLD * 1000);
-    
+    private static final long MIN_DIFF = 100; // min time difference before calculating significance
+    private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
+    private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
+
     // KeepAlive handling
     private final ScheduledExecutorService keepAliveScheduler;
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
@@ -70,30 +71,20 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
         long timeDiff = currentTime - prevProgTime;
 
         boolean statusChanged = isStatusChanged(currentStatus);
-        boolean likelySeek = isLikelySeek(currentProgress);
-        boolean cooldownReached = cooldownReached(timeDiff); // TODO: Remove cooldownReached as it's likely not working as expected
-        boolean rateMismatch = unexpectedDrift(currentStatus, currentProgress, timeDiff);
+        boolean rateMismatch = shouldSeek(currentStatus, currentProgress, timeDiff);
 
-        return statusChanged || likelySeek || cooldownReached || rateMismatch;
+        return statusChanged || rateMismatch;
     }
 
     private boolean isStatusChanged(int currentStatus) {
         return currentStatus != prevStatus;
     }
 
-    // More than 1-second difference, likely seek
-    private boolean isLikelySeek(double currentProgress) {
-        return Math.abs(currentProgress - prevProgress) > 1;
-    }
-
-    // Cap updates to once per second
-    private boolean cooldownReached(long timeDifference) {
-        return timeDifference > 1000;
-    }
-
-    private boolean unexpectedDrift(int currentStatus, double currentProgress, long timeDiff) {
-        if (currentStatus != PLAY_STATUS || timeDiff <= MIN_DIFF || videoPlayer.getPlaybackSpeed() <= 0) {
-            return false;
+    private boolean shouldSeek(int currentStatus, double currentProgress, long timeDiff) {
+        boolean paused = currentStatus == PAUSE_STATUS;
+        if (paused || timeDiff <= MIN_DIFF || videoPlayer.getPlaybackSpeed() <= 0) {
+            // Report differences greater than 1 second when paused
+            return Math.abs(currentProgress - prevProgress) > MIN_PROG_CHANGE;
         }
         double expectedAdvance = timeDiff * videoPlayer.getPlaybackSpeed();
         double positionDiff = Math.abs(currentProgress - prevProgress) * 1000; // in milliseconds
