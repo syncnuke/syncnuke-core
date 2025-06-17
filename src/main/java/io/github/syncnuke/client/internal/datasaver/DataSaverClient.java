@@ -121,7 +121,10 @@ public class DataSaverClient extends SyncClient<BaseData> {
     protected void sendKeepAlive() {
         State currentState = isPaused() ? State.PAUSED : State.PLAYING;
         double currentProgress = getPosition();
-        sendState(currentState, currentProgress);
+        if (isSignificantChange(currentState.getCode(), currentProgress)) {
+            sendState(currentState, currentProgress);
+        }
+        updateTracking(currentState.getCode(), currentProgress);
     }
 
     private void sendState(State state, double progress) {
