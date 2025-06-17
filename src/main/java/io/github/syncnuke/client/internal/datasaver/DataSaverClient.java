@@ -83,11 +83,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
         State currentState = State.PLAYING;
         double currentProgress = getPosition();
-        if (isSignificantChange(currentState.getCode(), currentProgress)) {
-            sendState(currentState, currentProgress);
-        }
-
-        updateTracking(currentState.getCode(), currentProgress);
+        sendState(currentState, currentProgress);
     }
 
     @Override
@@ -97,11 +93,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
         State currentState = State.PAUSED;
         double currentProgress = getPosition();
-        if (isSignificantChange(currentState.getCode(), currentProgress)) {
-            sendState(currentState, currentProgress);
-        }
-
-        updateTracking(currentState.getCode(), currentProgress);
+        sendState(currentState, currentProgress);
     }
 
     @Override
@@ -110,24 +102,23 @@ public class DataSaverClient extends SyncClient<BaseData> {
         log.debug("Seek event detected: {}", position);
 
         State currentState = isPaused() ? State.PAUSED : State.PLAYING;
-        if (isSignificantChange(currentState.getCode(), position)) {
-            sendState(currentState, position);
-        }
-
-        updateTracking(currentState.getCode(), position);
+        sendState(currentState, position);
     }
 
     @Override
     protected void sendKeepAlive() {
         State currentState = isPaused() ? State.PAUSED : State.PLAYING;
         double currentProgress = getPosition();
-        if (isSignificantChange(currentState.getCode(), currentProgress)) {
-            sendState(currentState, currentProgress);
-        }
-        updateTracking(currentState.getCode(), currentProgress);
+        sendState(currentState, currentProgress);
     }
 
     private void sendState(State state, double progress) {
+        boolean isSignificantChange = isSignificantChange(state.getCode(), progress);
+        updateTracking(state.getCode(), progress);
+        if (!isSignificantChange) {
+            return;
+        }
+
         try {
             BaseData message = new BaseData(
                     Command.UPDATE_STATE,
