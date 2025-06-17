@@ -5,6 +5,8 @@ public interface VideoPlayer extends AutoCloseable {
     void pause();
     void seek(double position);
     double getPosition();
+    double getPlaybackSpeed();
+    // TODO: Add setPlaybackSpeed(double speed);
     boolean isPaused();
     void load(String filePath);
     void setEventListener(VideoPlayerEventListener eventListener);
