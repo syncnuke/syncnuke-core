@@ -17,7 +17,6 @@ import java.util.Optional;
 @Slf4j
 public class SyncplayClient extends SyncClient<SyncplayMessage> {
     private static final int DEFAULT_PORT = 8999;
-    private static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;

@@ -15,6 +15,8 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer, VideoPlayerEventListener {
 
+    protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
+
     @Delegate(types = VideoPlayer.class)
     private final VideoPlayer videoPlayer;
 
