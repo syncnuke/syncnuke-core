@@ -24,7 +24,6 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
     private volatile double prevProgress = 0;
     private volatile long prevProgTime = System.currentTimeMillis();
-    private static final long MIN_DIFF = 100; // min time difference before calculating significance
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
@@ -67,29 +66,38 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
     protected boolean isSignificantChange(int currentStatus, double currentProgress) {
+        if (isStatusChanged(currentStatus)) {
+            return true;
+        }
+
+        if (Math.abs(currentProgress - prevProgress) <= MIN_PROG_CHANGE) {
+            // Progress change is not significant enough
+            return false;
+        }
+
         long currentTime = System.currentTimeMillis();
         long timeDiff = currentTime - prevProgTime;
 
-        boolean statusChanged = isStatusChanged(currentStatus);
-        boolean rateMismatch = shouldSeek(currentStatus, currentProgress, timeDiff);
+        boolean paused = currentStatus == PAUSE_STATUS;
+        if (paused || timeDiff <= 0 || videoPlayer.getPlaybackSpeed() <= 0) {
+            // Return exclusively based on progress change
+            return true;
+        }
 
-        return statusChanged || rateMismatch;
+        double expectedAdvance = timeDiff * videoPlayer.getPlaybackSpeed();
+        if ((long) expectedAdvance == 0) {
+            // Prevent division by zero
+            return false;
+        }
+        double positionDiff = Math.abs(currentProgress - prevProgress) * 1000; // in milliseconds
+        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
+
+        // Progress change does not match expected change based on playback speed
+        return relativeError > DRIFT_THRESHOLD;
     }
 
     private boolean isStatusChanged(int currentStatus) {
         return currentStatus != prevStatus;
-    }
-
-    private boolean shouldSeek(int currentStatus, double currentProgress, long timeDiff) {
-        boolean paused = currentStatus == PAUSE_STATUS;
-        if (paused || timeDiff <= MIN_DIFF || videoPlayer.getPlaybackSpeed() <= 0) {
-            // Report differences greater than 1 second when paused
-            return Math.abs(currentProgress - prevProgress) > MIN_PROG_CHANGE;
-        }
-        double expectedAdvance = timeDiff * videoPlayer.getPlaybackSpeed();
-        double positionDiff = Math.abs(currentProgress - prevProgress) * 1000; // in milliseconds
-        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
-        return relativeError > DRIFT_THRESHOLD;
     }
 
     protected void updateTracking(int currentStatus, double currentProgress) {
