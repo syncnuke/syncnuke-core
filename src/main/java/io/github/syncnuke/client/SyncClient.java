@@ -24,6 +24,8 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
     private volatile double prevProgress = 0;
     private volatile long prevProgTime = System.currentTimeMillis();
+    private static final double DRIFT_THRESHOLD = 0.1; // 100ms threshold for drift detection
+    private static final long MIN_DIFF = (long) (DRIFT_THRESHOLD * 1000);
     
     // KeepAlive handling
     private final ScheduledExecutorService keepAliveScheduler;
@@ -65,9 +67,38 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
      */
     protected boolean isSignificantChange(int currentStatus, double currentProgress) {
         long currentTime = System.currentTimeMillis();
-        double positionDiff = Math.abs(currentProgress - prevProgress);
-        double timeDiff = (currentTime - prevProgTime) / 1000.0;
-        return currentStatus != prevStatus || positionDiff > 1 || timeDiff > 1;
+        long timeDiff = currentTime - prevProgTime;
+
+        boolean statusChanged = isStatusChanged(currentStatus);
+        boolean likelySeek = isLikelySeek(currentProgress);
+        boolean cooldownReached = cooldownReached(timeDiff); // TODO: Remove cooldownReached as it's likely not working as expected
+        boolean rateMismatch = unexpectedDrift(currentStatus, currentProgress, timeDiff);
+
+        return statusChanged || likelySeek || cooldownReached || rateMismatch;
+    }
+
+    private boolean isStatusChanged(int currentStatus) {
+        return currentStatus != prevStatus;
+    }
+
+    // More than 1-second difference, likely seek
+    private boolean isLikelySeek(double currentProgress) {
+        return Math.abs(currentProgress - prevProgress) > 1;
+    }
+
+    // Cap updates to once per second
+    private boolean cooldownReached(long timeDifference) {
+        return timeDifference > 1000;
+    }
+
+    private boolean unexpectedDrift(int currentStatus, double currentProgress, long timeDiff) {
+        if (currentStatus != PLAY_STATUS || timeDiff <= MIN_DIFF || videoPlayer.getPlaybackSpeed() <= 0) {
+            return false;
+        }
+        double expectedAdvance = timeDiff * videoPlayer.getPlaybackSpeed();
+        double positionDiff = Math.abs(currentProgress - prevProgress) * 1000; // in milliseconds
+        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
+        return relativeError > DRIFT_THRESHOLD;
     }
 
     protected void updateTracking(int currentStatus, double currentProgress) {
