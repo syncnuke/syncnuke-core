@@ -2,25 +2,34 @@ package io.github.syncnuke.client.internal.tcp;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.Socket;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Slf4j
-public abstract class TcpClient<T> implements Closeable {
+public class TcpClient<T> implements NetClient<T> {
 
     private Socket socket;
     private InputStream in;
     private OutputStream out;
-    private final Codec<T> codec;
+    private Codec<T> codec;
     private final ExecutorService executor;
+    private final Set<NetListener<T>> listeners = new CopyOnWriteArraySet<>();
 
-    public TcpClient(String host, int port, Codec<T> codec) {
+    public TcpClient() {
+        executor = Executors.newSingleThreadExecutor();
+    }
+
+    @Override
+    public void connect(String host, int port, Codec<T> codec) {
         this.codec = codec;
         try {
             connect(host, port);
-            executor = Executors.newSingleThreadExecutor();
             startListening();
         } catch (IOException e) {
             log.error("Failed to connect to server: {}", e.getMessage());
@@ -41,7 +50,7 @@ public abstract class TcpClient<T> implements Closeable {
                 while (!Thread.currentThread().isInterrupted()) {
                     T data = codec.decode(in);
                     if (data != null) {
-                        handleResponse(data);
+                        notifyListeners(data);
                     }
                 }
             } catch (IOException e) {
@@ -50,8 +59,29 @@ public abstract class TcpClient<T> implements Closeable {
         });
     }
 
-    protected abstract void handleResponse(T data);
+    private void notifyListeners(T data) {
+        for (NetListener<T> listener : listeners) {
+            try {
+                listener.onResponse(data);
+            } catch (Exception e) {
+                log.error("Error in listener: {}", e.getMessage(), e);
+            }
+        }
+    }
 
+    @Override
+    public void addListener(NetListener<T> listener) {
+        if (listener != null) {
+            listeners.add(listener);
+        }
+    }
+
+    @Override
+    public boolean removeListener(NetListener<T> listener) {
+        return listener != null && listeners.remove(listener);
+    }
+
+    @Override
     public synchronized void send(T data) {
         try {
             if (socket == null || socket.isClosed() || !socket.isConnected()) {

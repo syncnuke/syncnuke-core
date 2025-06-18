@@ -1,5 +1,6 @@
 package io.github.syncnuke.client;
 
+import io.github.syncnuke.client.internal.tcp.NetClient;
 import lombok.experimental.Delegate;
 import lombok.extern.slf4j.Slf4j;
 import io.github.syncnuke.player.VideoPlayer;
@@ -13,12 +14,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
-public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer, VideoPlayerEventListener {
+public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoPlayerEventListener {
 
     protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
     @Delegate(types = VideoPlayer.class)
     private final VideoPlayer videoPlayer;
+
+    @Delegate
+    private final NetClient<T> netClient;
 
     // Drift tracking
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
@@ -32,7 +36,7 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
 
     protected SyncClient(String host, int port, Codec<T> codec, int keepAliveInterval, VideoPlayer videoPlayer) {
-        super(host, port, codec);
+        netClient = getNetClient(host, port, codec);
         this.videoPlayer = videoPlayer;
 
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -41,6 +45,13 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
             return thread;
         });
         startKeepAliveTask(keepAliveInterval);
+    }
+
+    private NetClient<T> getNetClient(String host, int port, Codec<T> codec) {
+        NetClient<T> netClient = new TcpClient<>();
+        netClient.connect(host, port, codec);
+        netClient.addListener(this::handleResponse);
+        return netClient;
     }
 
     private void startKeepAliveTask(int keepAliveInterval) {
@@ -62,6 +73,8 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     }
 
     public abstract void login(String username, String room);
+
+    protected abstract void handleResponse(T data);
 
     /**
      * Used to filter out video state updates that are too minor to trigger server notifications.
@@ -129,7 +142,6 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
         if (keepAliveScheduler != null) {
             keepAliveScheduler.shutdownNow();
         }
-        super.close();
         try {
             videoPlayer.close();
         } catch (Exception e) {
