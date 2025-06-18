@@ -70,6 +70,9 @@ public abstract class TcpClient<T> implements Closeable {
         try {
             close();
             connect(socket.getInetAddress().getHostName(), socket.getPort());
+            if (executor.isShutdown()) {
+                startListening();
+            }
             log.info("Reconnected to TCP Server.");
         } catch (IOException e) {
             log.error("Failed to reconnect: {}", e.getMessage());
@@ -83,6 +86,7 @@ public abstract class TcpClient<T> implements Closeable {
             if (socket != null) {
                 socket.close();
             }
+            executor.shutdown();
         } catch (IOException e) {
             log.error("Failed to close connection: {}", e.getMessage());
         }
