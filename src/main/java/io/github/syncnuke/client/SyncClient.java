@@ -19,7 +19,7 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
     protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
     @Delegate(types = VideoPlayer.class)
-    private final VideoPlayer videoPlayer;
+    private final VideoPlayer player;
 
     @Delegate
     private final NetClient<T> netClient;
@@ -37,13 +37,13 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
 
     protected SyncClient(String host, int port, Codec<T> codec, int keepAliveInterval, VideoPlayer videoPlayer) {
         netClient = getNetClient(host, port, codec);
-        this.videoPlayer = videoPlayer;
 
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "keepalive-scheduler");
             thread.setDaemon(true);
             return thread;
         });
+        this.player = videoPlayer;
         startKeepAliveTask(keepAliveInterval);
     }
 
@@ -96,12 +96,12 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
         long timeDiff = currentTime - prevProgTime;
 
         boolean paused = currentStatus == PAUSE_STATUS;
-        if (paused || timeDiff <= 0 || videoPlayer.getPlaybackSpeed() <= 0) {
+        if (paused || timeDiff <= 0 || player.getPlaybackSpeed() <= 0) {
             // Return exclusively based on progress change
             return true;
         }
 
-        double expectedAdvance = timeDiff * videoPlayer.getPlaybackSpeed();
+        double expectedAdvance = timeDiff * player.getPlaybackSpeed();
         if ((long) expectedAdvance == 0) {
             // Prevent division by zero
             return false;
@@ -143,7 +143,7 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
             keepAliveScheduler.shutdownNow();
         }
         try {
-            videoPlayer.close();
+            player.close();
         } catch (Exception e) {
             log.warn("Failed to close VideoPlayer: {}", e.getMessage());
         }
