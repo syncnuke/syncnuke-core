@@ -1,7 +1,6 @@
-package io.github.syncnuke.client.internal.tcp;
+package io.github.syncnuke.client.internal.net;
 
 import java.io.Closeable;
-import java.io.IOException;
 
 public interface NetClient<T> extends Closeable {
 

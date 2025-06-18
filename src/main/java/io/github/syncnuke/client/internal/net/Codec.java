@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.tcp;
+package io.github.syncnuke.client.internal.net;
 
 import java.io.IOException;
 import java.io.InputStream;

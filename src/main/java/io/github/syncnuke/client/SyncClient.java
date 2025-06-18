@@ -1,12 +1,12 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.client.internal.tcp.NetClient;
-import lombok.experimental.Delegate;
-import lombok.extern.slf4j.Slf4j;
+import io.github.syncnuke.client.internal.net.Codec;
+import io.github.syncnuke.client.internal.net.NetClient;
+import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
-import io.github.syncnuke.client.internal.tcp.Codec;
-import io.github.syncnuke.client.internal.tcp.TcpClient;
+import lombok.experimental.Delegate;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;

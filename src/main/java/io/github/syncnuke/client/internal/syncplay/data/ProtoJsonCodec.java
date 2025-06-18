@@ -7,7 +7,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
-import io.github.syncnuke.client.internal.tcp.Codec;
+import io.github.syncnuke.client.internal.net.Codec;
 import pl.syncplay.proto.SyncplayProto.SyncplayMessage;
 
 import java.io.*;

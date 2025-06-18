@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.tcp;
+package io.github.syncnuke.client.internal.net;
 
 import lombok.extern.slf4j.Slf4j;
 

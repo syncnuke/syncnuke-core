@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.tcp;
+package io.github.syncnuke.client.internal.net;
 
 /**
  * Interface for listening to responses from the network client

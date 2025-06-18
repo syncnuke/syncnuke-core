@@ -1,6 +1,6 @@
 package io.github.syncnuke.client.internal.datasaver.data;
 
-import io.github.syncnuke.client.internal.tcp.Codec;
+import io.github.syncnuke.client.internal.net.Codec;
 
 import java.io.IOException;
 import java.io.InputStream;
