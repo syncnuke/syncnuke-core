@@ -231,7 +231,6 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         state.getPlaystateBuilder().setPaused(getPlayer().isPaused());
         state.getPlaystateBuilder().setPosition(getPlayer().getPosition());
         send(state.build());
-        updateLastMessageSentTime();
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
 

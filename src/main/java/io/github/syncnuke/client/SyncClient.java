@@ -78,6 +78,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
             return;
         }
         netClient.send(data);
+        updateLastMessageSentTime();
     }
 
     protected abstract void sendKeepAlive();
@@ -137,7 +138,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * Updates the timestamp of the last message sent.
      * This should be called after any message is sent to prevent unnecessary keepAlive messages.
      */
-    protected void updateLastMessageSentTime() {
+    private void updateLastMessageSentTime() {
         lastMessageSentTime.set(System.currentTimeMillis());
     }
 
