@@ -5,7 +5,7 @@ import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
-import lombok.experimental.Delegate;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.Executors;
@@ -14,15 +14,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
-public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoPlayerEventListener {
+public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoCloseable {
 
     protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
-    @Delegate(types = VideoPlayer.class)
+    @Getter
     private final VideoPlayer player;
 
-    @Delegate
-    private final NetClient<T> netClient;
+    private NetClient<T> netClient;
 
     // Drift tracking
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
@@ -35,23 +34,20 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
     private final ScheduledExecutorService keepAliveScheduler;
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
 
-    protected SyncClient(String host, int port, Codec<T> codec, int keepAliveInterval, VideoPlayer videoPlayer) {
-        netClient = getNetClient(host, port, codec);
-
+    public SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "keepalive-scheduler");
             thread.setDaemon(true);
             return thread;
         });
+        netClient = new TcpClient<>();
         this.player = videoPlayer;
         startKeepAliveTask(keepAliveInterval);
     }
 
-    private NetClient<T> getNetClient(String host, int port, Codec<T> codec) {
-        NetClient<T> netClient = new TcpClient<>();
+    public void connect(String host, int port, Codec<T> codec) {
         netClient.connect(host, port, codec);
         netClient.addListener(this::handleResponse);
-        return netClient;
     }
 
     private void startKeepAliveTask(int keepAliveInterval) {
@@ -75,6 +71,16 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
     public abstract void login(String username, String room);
 
     protected abstract void handleResponse(T data);
+
+    protected void send(T data) {
+        if (data == null) {
+            log.debug("Attempted to send null data, skipping");
+            return;
+        }
+        netClient.send(data);
+    }
+
+    protected abstract void sendKeepAlive();
 
     /**
      * Used to filter out video state updates that are too minor to trigger server notifications.
@@ -126,8 +132,6 @@ public abstract class SyncClient<T> implements NetClient<T>, VideoPlayer, VideoP
         this.prevProgress = currentProgress;
         this.prevProgTime = System.currentTimeMillis();
     }
-
-    protected abstract void sendKeepAlive();
 
     /**
      * Updates the timestamp of the last message sent.

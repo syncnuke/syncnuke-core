@@ -25,7 +25,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private final int debounceDelay; // in milliseconds
 
     public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
-        super(host, port, new BaseCodec(), 10000, videoPlayer);
+        super(10000, videoPlayer);
+        connect(host, port, new BaseCodec());
         this.debounceDelay = debounceDelay;
     }
 
@@ -53,21 +54,21 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     private void handleStateUpdate(BaseData data) {
-        State currentState = isPaused() ? State.PAUSED : State.PLAYING;
+        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
 
             serverCommandInProgress.set(true);
             try {
                 if (data.getState() != currentState) {
                     if (data.getState() == State.PLAYING) {
-                        play();
+                        getPlayer().play();
                         log.info("Play command executed from server");
                     } else {
-                        pause();
+                        getPlayer().pause();
                         log.info("Pause command executed from server");
                     }
                 }
                 if (isSignificantChange(data.getState().getCode(), data.getPosition())) {
-                    seek(data.getPosition());
+                    getPlayer().seek(data.getPosition());
                     log.info("Synchronized seek with server during pause change: {}", data.getPosition());
                 }
                 updateTracking(data.getState().getCode(), data.getPosition());
@@ -82,7 +83,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
         log.debug("Play event detected");
 
         State currentState = State.PLAYING;
-        double currentProgress = getPosition();
+        double currentProgress = getPlayer().getPosition();
         sendState(currentState, currentProgress);
     }
 
@@ -92,7 +93,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
         log.debug("Pause event detected");
 
         State currentState = State.PAUSED;
-        double currentProgress = getPosition();
+        double currentProgress = getPlayer().getPosition();
         sendState(currentState, currentProgress);
     }
 
@@ -101,14 +102,14 @@ public class DataSaverClient extends SyncClient<BaseData> {
         if (serverCommandInProgress.get()) return;
         log.debug("Seek event detected: {}", position);
 
-        State currentState = isPaused() ? State.PAUSED : State.PLAYING;
+        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
         sendState(currentState, position);
     }
 
     @Override
     protected void sendKeepAlive() {
-        State currentState = isPaused() ? State.PAUSED : State.PLAYING;
-        double currentProgress = getPosition();
+        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
+        double currentProgress = getPlayer().getPosition();
         sendState(currentState, currentProgress);
     }
 

@@ -36,7 +36,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
-        super(host, port, new ProtoJsonCodec(), 1000, videoPlayer);
+        super(1000, videoPlayer);
+        connect(host, port, new ProtoJsonCodec());
         this.dataProcessor = dataProcessor;
         state = StateMessage.newBuilder().setPlaystate(PlayState.newBuilder()
                 .setPaused(true)
@@ -82,7 +83,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     public void onPlay() {
         log.debug("Play event detected");
         int currentStatus = PLAY_STATUS;
-        double position = getPosition();
+        double position = getPlayer().getPosition();
         if (isSignificantChange(currentStatus, position)) {
             log.info("Play command sent due to significant change");
             state.getPlaystateBuilder().setPosition(position);
@@ -96,7 +97,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     public void onPause() {
         log.debug("Pause event detected");
         int currentStatus = PAUSE_STATUS;
-        double position = getPosition();
+        double position = getPlayer().getPosition();
         if (isSignificantChange(currentStatus, position)) {
             log.info("Pause command sent due to significant change");
             state.getPlaystateBuilder().setPosition(position);
@@ -113,7 +114,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
             return;
         }
         log.debug("Seek event detected: {}", position);
-        int currentStatus = isPaused() ? PAUSE_STATUS : PLAY_STATUS;
+        int currentStatus = getPlayer().isPaused() ? PAUSE_STATUS : PLAY_STATUS;
         if (isSignificantChange(currentStatus, position)) {
             log.info("Seek command sent due to significant change");
             state.getPlaystateBuilder().setPosition(position);
@@ -125,8 +126,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
 
     @Override
     protected void sendKeepAlive() {
-        boolean isPaused = isPaused();
-        double position = getPosition();
+        boolean isPaused = getPlayer().isPaused();
+        double position = getPlayer().getPosition();
         state.getPlaystateBuilder().setPaused(isPaused);
         state.getPlaystateBuilder().setPosition(position);
         send(state.build());
@@ -169,13 +170,13 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     private void updatePlayState(StateMessage stateData) {
-        boolean wasPaused = isPaused();
+        boolean wasPaused = getPlayer().isPaused();
         boolean isPaused = stateData.getPlaystate().getPaused();
 
         if (isPaused && !wasPaused) {
-            pause();
+            getPlayer().pause();
         } else if (!isPaused && wasPaused) {
-            play();
+            getPlayer().play();
         }
 
         state.getPlaystateBuilder().setPaused(stateData.getPlaystate().getPaused());
@@ -185,7 +186,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         if (stateData.getPlaystate().getDoSeek()) {
             log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.getPlaystateBuilder().setPosition(stateData.getPlaystate().getPosition());
-            seek(state.getPlaystate().getPosition());
+            getPlayer().seek(state.getPlaystate().getPosition());
         }
     }
 
@@ -227,8 +228,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
 
     private void acknowledgeState() {
         // TODO: Remove parsing from VideoPlayer if facing bugs
-        state.getPlaystateBuilder().setPaused(isPaused());
-        state.getPlaystateBuilder().setPosition(getPosition());
+        state.getPlaystateBuilder().setPaused(getPlayer().isPaused());
+        state.getPlaystateBuilder().setPosition(getPlayer().getPosition());
         send(state.build());
         updateLastMessageSentTime();
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
@@ -249,8 +250,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
             // {"Set": {"ready": {"username": "testme", "isReady": true, "manuallyInitiated": false}}}
             // TODO: Remove this and find a better way to handle playback start
             if (setData.hasReady()) {
-                play();
-                state.getPlaystateBuilder().setPaused(isPaused());
+                getPlayer().play();
+                state.getPlaystateBuilder().setPaused(getPlayer().isPaused());
             }
         }
     }
