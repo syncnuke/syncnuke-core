@@ -44,6 +44,10 @@ public abstract class SyncClient<T> extends TcpClient<T> implements VideoPlayer,
     }
 
     private void startKeepAliveTask(int keepAliveInterval) {
+        if (keepAliveInterval <= 0) {
+            log.debug("KeepAlive interval is set to 0 or negative, turning off keepAlive");
+            return;
+        }
         keepAliveScheduler.scheduleWithFixedDelay(() -> {
             try {
                 long timeSinceLastMessage = System.currentTimeMillis() - lastMessageSentTime.get();
