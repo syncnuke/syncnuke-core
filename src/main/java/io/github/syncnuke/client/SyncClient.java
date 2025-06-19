@@ -34,14 +34,14 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private final ScheduledExecutorService keepAliveScheduler;
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
 
-    public SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
+    protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
+        this.player = videoPlayer;
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "keepalive-scheduler");
             thread.setDaemon(true);
             return thread;
         });
         netClient = new TcpClient<>();
-        this.player = videoPlayer;
         startKeepAliveTask(keepAliveInterval);
     }
 
