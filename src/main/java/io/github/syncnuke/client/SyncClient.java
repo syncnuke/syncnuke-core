@@ -30,8 +30,8 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private final VideoPlayer player;
 
     // Drift tracking
-    private volatile int prevStatus = 1; // 1 = playing, 0 = paused
-    private volatile double prevProgress = 0;
+    private volatile Integer prevStatus; // 1 = playing, 0 = paused
+    private volatile Double prevProgress;
     private volatile long prevProgTime = System.currentTimeMillis();
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
@@ -109,6 +109,10 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
     protected boolean isSignificantChange(int currentStatus, double currentProgress) {
+        if (prevStatus == null || prevProgress == null) {
+            return true;
+        }
+
         if (isStatusChanged(currentStatus)) {
             return true;
         }
