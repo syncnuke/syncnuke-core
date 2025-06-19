@@ -13,6 +13,15 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Base class implementation for video synchronization clients. Responsibilities include:
+ * <ul>
+ *   <li>Playback change detection to prevent unnecessary updates</li>
+ *   <li>Centralized access to a {@link VideoPlayer} instance</li>
+ *   <li>Setting up a networking client for synchronization</li>
+ *   <li>Preventing time-outs through a keep-alive mechanism</li>
+ * </ul>
+ */
 @Slf4j
 public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoCloseable {
 
@@ -50,6 +59,12 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      */
     protected abstract NetClient<T> createNetClient();
 
+    /**
+     * Establishes the connection to be used for synchronization.
+     * @param host  the sync server host
+     * @param port  the sync server port
+     * @param codec the codec to use for encoding/decoding messages
+     */
     public void connect(String host, int port, Codec<T> codec) {
         netClient.connect(host, port, codec);
         netClient.addListener(this::handleResponse);
@@ -75,6 +90,9 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
 
     public abstract void login(String username, String room);
 
+    /**
+     * Handles the response received from the server.
+     */
     protected abstract void handleResponse(T data);
 
     protected void send(T data) {
