@@ -21,7 +21,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     @Getter
     private final VideoPlayer player;
 
-    private NetClient<T> netClient;
+    private final NetClient<T> netClient;
 
     // Drift tracking
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
@@ -35,15 +35,20 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
 
     protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
+        this.netClient = createNetClient();
         this.player = videoPlayer;
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "keepalive-scheduler");
             thread.setDaemon(true);
             return thread;
         });
-        netClient = new TcpClient<>();
         startKeepAliveTask(keepAliveInterval);
     }
+
+    /**
+     * Used for instantiating the underlying NetClient.
+     */
+    protected abstract NetClient<T> createNetClient();
 
     public void connect(String host, int port, Codec<T> codec) {
         netClient.connect(host, port, codec);

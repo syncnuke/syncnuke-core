@@ -2,6 +2,8 @@ package io.github.syncnuke.client.internal.syncplay;
 
 import com.google.protobuf.Message;
 import io.github.syncnuke.client.SyncClient;
+import io.github.syncnuke.client.internal.net.NetClient;
+import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
 import io.github.syncnuke.client.internal.syncplay.data.ProtoJsonCodec;
 import io.github.syncnuke.client.internal.syncplay.data.builder.HelloMessageBuilder;
@@ -43,6 +45,11 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
                 .setPaused(true)
                 .setDoSeek(false))
         ;
+    }
+
+    @Override
+    protected NetClient<SyncplayMessage> createNetClient() {
+        return new TcpClient<>();
     }
 
     @Override

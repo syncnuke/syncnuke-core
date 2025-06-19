@@ -1,5 +1,7 @@
 package io.github.syncnuke.client.internal.datasaver;
 
+import io.github.syncnuke.client.internal.net.NetClient;
+import io.github.syncnuke.client.internal.net.TcpClient;
 import lombok.extern.slf4j.Slf4j;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.datasaver.data.BaseCodec;
@@ -32,6 +34,11 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     public DataSaverClient(String host, int port, VideoPlayer videoPlayer) {
         this(host, port, 0, videoPlayer);
+    }
+
+    @Override
+    protected NetClient<BaseData> createNetClient() {
+        return new TcpClient<>();
     }
 
     @Override
