@@ -20,6 +20,7 @@ import java.util.Optional;
 public class SyncplayClient extends SyncClient<SyncplayMessage> {
     private static final int DEFAULT_PORT = 8999;
 
+    private final NetClient<SyncplayMessage> netClient;
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
 
@@ -39,6 +40,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
         super(1000, videoPlayer);
+        this.netClient = new TcpClient<>();
         connect(host, port, new ProtoJsonCodec());
         this.dataProcessor = dataProcessor;
         state = StateMessage.newBuilder().setPlaystate(PlayState.newBuilder()
@@ -48,8 +50,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     @Override
-    protected NetClient<SyncplayMessage> createNetClient() {
-        return new TcpClient<>();
+    protected NetClient<SyncplayMessage> getNetClient() {
+        return netClient;
     }
 
     @Override

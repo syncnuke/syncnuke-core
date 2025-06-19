@@ -16,6 +16,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class DataSaverClient extends SyncClient<BaseData> {
 
+    private final NetClient<BaseData> netClient;
+
     private final ThreadLocal<Boolean> serverCommandInProgress = new ThreadLocal<Boolean>() {
         @Override
         protected Boolean initialValue() {
@@ -28,6 +30,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
         super(10000, videoPlayer);
+        this.netClient = new TcpClient<>();
         connect(host, port, new BaseCodec());
         this.debounceDelay = debounceDelay;
     }
@@ -37,8 +40,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     @Override
-    protected NetClient<BaseData> createNetClient() {
-        return new TcpClient<>();
+    protected NetClient<BaseData> getNetClient() {
+        return netClient;
     }
 
     @Override

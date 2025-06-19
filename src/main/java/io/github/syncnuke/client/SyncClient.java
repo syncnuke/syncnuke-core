@@ -2,7 +2,6 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 import lombok.Getter;
@@ -30,8 +29,6 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     @Getter
     private final VideoPlayer player;
 
-    private final NetClient<T> netClient;
-
     // Drift tracking
     private volatile int prevStatus = 1; // 1 = playing, 0 = paused
     private volatile double prevProgress = 0;
@@ -44,7 +41,6 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
 
     protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
-        this.netClient = createNetClient();
         this.player = videoPlayer;
         this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread thread = new Thread(r, "keepalive-scheduler");
@@ -57,7 +53,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     /**
      * Used for instantiating the underlying NetClient.
      */
-    protected abstract NetClient<T> createNetClient();
+    protected abstract NetClient<T> getNetClient();
 
     /**
      * Establishes the connection to be used for synchronization.
@@ -66,8 +62,8 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * @param codec the codec to use for encoding/decoding messages
      */
     public void connect(String host, int port, Codec<T> codec) {
-        netClient.connect(host, port, codec);
-        netClient.addListener(this::handleResponse);
+        getNetClient().connect(host, port, codec);
+        getNetClient().addListener(this::handleResponse);
     }
 
     private void startKeepAliveTask(int keepAliveInterval) {
@@ -100,7 +96,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
             log.debug("Attempted to send null data, skipping");
             return;
         }
-        netClient.send(data);
+        getNetClient().send(data);
         updateLastMessageSentTime();
     }
 
