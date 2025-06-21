@@ -98,21 +98,21 @@ class SyncClientTest {
 
     @ParameterizedTest
     @ValueSource(doubles = {0.0, -0.1})
-    void isSignificantChange_ReturnsTrue_WhenPlaybackSpeedIsInvalid(double speed) throws InterruptedException {
+    void isSignificantChange_ReturnsTrue_WhenPlaybackSpeedIsInvalid(double speed) {
         when(player.getPlaybackSpeed()).thenReturn(speed);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
 
-        Thread.sleep(1);
+        client.advanceTimeBy(1);
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
 
         assertTrue(result);
     }
 
     @Test
-    void isSignificantChange_ReturnsTrue_WhenDriftExceedsThreshold() throws InterruptedException {
+    void isSignificantChange_ReturnsTrue_WhenDriftExceedsThreshold() {
         when(player.getPlaybackSpeed()).thenReturn(1.0);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        Thread.sleep(1);
+        client.advanceTimeBy(1);
 
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.51);
 
@@ -120,10 +120,10 @@ class SyncClientTest {
     }
 
     @Test
-    void isSignificantChange_ReturnsFalse_WhenExpectedAdvanceIsTooSmall() throws InterruptedException {
+    void isSignificantChange_ReturnsFalse_WhenExpectedAdvanceIsTooSmall() {
         when(player.getPlaybackSpeed()).thenReturn(0.000000000001); // Cause multiplication to lead to 0 millis
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        Thread.sleep(1);
+        client.advanceTimeBy(1);
 
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 10.0);
 
@@ -131,11 +131,11 @@ class SyncClientTest {
     }
 
     @Test
-    void isSignificantChange_ReturnsFalse_WhenDriftUnderThreshold() throws InterruptedException {
+    void isSignificantChange_ReturnsFalse_WhenDriftUnderThreshold() {
         when(player.getPlaybackSpeed()).thenReturn(1.0);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
 
-        Thread.sleep(600);
+        client.advanceTimeBy(600);
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
 
         assertFalse(result);

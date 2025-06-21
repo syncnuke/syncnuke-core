@@ -6,6 +6,7 @@ import io.github.syncnuke.player.VideoPlayerEventListener;
 import lombok.experimental.Delegate;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class TestableSyncClient extends SyncClient<Object> {
 
@@ -13,6 +14,7 @@ final class TestableSyncClient extends SyncClient<Object> {
     private final VideoPlayerEventListener listener;
     private final NetClient<Object> netClient;
     private final AtomicInteger keepAliveCount = new AtomicInteger();
+    private final AtomicLong currentTime = new AtomicLong();
 
     TestableSyncClient(int keepAliveInterval,
                        VideoPlayer player,
@@ -21,6 +23,26 @@ final class TestableSyncClient extends SyncClient<Object> {
         super(keepAliveInterval, player);
         this.listener = listener;
         this.netClient = netClient;
+        this.currentTime.set(System.currentTimeMillis());
+    }
+
+    @Override
+    protected long getCurrentTime() {
+        return currentTime.get();
+    }
+
+    /**
+     * Advances the mock time by the specified number of milliseconds.
+     */
+    public void advanceTimeBy(long milliseconds) {
+        currentTime.addAndGet(milliseconds);
+    }
+
+    /**
+     * Sets the mock time to a specific value.
+     */
+    public void setCurrentTime(long timeMillis) {
+        currentTime.set(timeMillis);
     }
 
     @Override

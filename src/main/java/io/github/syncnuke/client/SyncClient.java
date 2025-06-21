@@ -32,13 +32,13 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     // Drift tracking
     private volatile Integer prevStatus; // 1 = playing, 0 = paused
     private volatile Double prevProgress;
-    private volatile long prevProgTime = System.currentTimeMillis();
+    private volatile long prevProgTime;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
     // KeepAlive handling
     private final ScheduledExecutorService keepAliveScheduler;
-    private final AtomicLong lastMessageSentTime = new AtomicLong(System.currentTimeMillis());
+    private final AtomicLong lastMessageSentTime = new AtomicLong();
 
     protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
         this.player = videoPlayer;
@@ -73,7 +73,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
         }
         keepAliveScheduler.scheduleWithFixedDelay(() -> {
             try {
-                long timeSinceLastMessage = System.currentTimeMillis() - lastMessageSentTime.get();
+                long timeSinceLastMessage = getCurrentTime() - lastMessageSentTime.get();
                 if (timeSinceLastMessage > keepAliveInterval) {
                     log.debug("Sending keepAlive to maintain connection");
                     sendKeepAlive();
@@ -122,7 +122,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
             return false;
         }
 
-        long currentTime = System.currentTimeMillis();
+        long currentTime = getCurrentTime();
         long timeDiff = currentTime - prevProgTime;
 
         boolean paused = currentStatus == PAUSE_STATUS;
@@ -154,7 +154,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
 
     protected void updateTracking(double currentProgress) {
         this.prevProgress = currentProgress;
-        this.prevProgTime = System.currentTimeMillis();
+        this.prevProgTime = getCurrentTime();
     }
 
     /**
@@ -162,7 +162,14 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * This should be called after any message is sent to prevent unnecessary keepAlive messages.
      */
     private void updateLastMessageSentTime() {
-        lastMessageSentTime.set(System.currentTimeMillis());
+        lastMessageSentTime.set(getCurrentTime());
+    }
+
+    /**
+     * @return The current system time in milliseconds.
+     */
+    protected long getCurrentTime() {
+        return System.currentTimeMillis();
     }
 
     @Override
