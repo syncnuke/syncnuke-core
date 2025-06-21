@@ -48,6 +48,7 @@ dependencies {
     implementation 'com.google.protobuf:protobuf-java-util:4.31.1'
 
     testCompileOnly 'org.projectlombok:lombok:1.18.36'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.36'
     // JUnit
     testImplementation 'org.junit.jupiter:junit-jupiter:5.13.1'
     // Mockito
