@@ -4,11 +4,12 @@ import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.service.TimingService;
+import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -29,6 +30,9 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     @Getter
     private final VideoPlayer player;
 
+    @Getter
+    private final TimingService timingService;
+
     // Drift tracking
     private volatile Integer prevStatus; // 1 = playing, 0 = paused
     private volatile Double prevProgress;
@@ -37,16 +41,16 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
     // KeepAlive handling
-    private final ScheduledExecutorService keepAliveScheduler;
+    private ScheduledFuture<?> keepAliveTask;
     private final AtomicLong lastMessageSentTime = new AtomicLong();
 
     protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
+        this(keepAliveInterval, videoPlayer, new TimingServiceImpl());
+    }
+
+    protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer, TimingService timingService) {
         this.player = videoPlayer;
-        this.keepAliveScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread thread = new Thread(r, "keepalive-scheduler");
-            thread.setDaemon(true);
-            return thread;
-        });
+        this.timingService = timingService;
         startKeepAliveTask(keepAliveInterval);
     }
 
@@ -71,7 +75,8 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
             log.debug("KeepAlive interval is set to 0 or negative, turning off keepAlive");
             return;
         }
-        keepAliveScheduler.scheduleWithFixedDelay(() -> {
+
+        keepAliveTask = timingService.schedule(() -> {
             try {
                 long timeSinceLastMessage = getCurrentTime() - lastMessageSentTime.get();
                 if (timeSinceLastMessage > keepAliveInterval) {
@@ -169,13 +174,13 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * @return The current system time in milliseconds.
      */
     protected long getCurrentTime() {
-        return System.currentTimeMillis();
+        return timingService.getCurrentTime();
     }
 
     @Override
     public void close() {
-        if (keepAliveScheduler != null) {
-            keepAliveScheduler.shutdownNow();
+        if (keepAliveTask != null) {
+            keepAliveTask.cancel(true);
         }
         try {
             player.close();

@@ -11,6 +11,8 @@ import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationE
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
 import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.service.TimingService;
+import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import pl.syncplay.proto.SyncplayProto.*;
 
@@ -20,6 +22,7 @@ import java.util.Optional;
 public class SyncplayClient extends SyncClient<SyncplayMessage> {
     private static final int DEFAULT_PORT = 8999;
 
+    private final TimingService timingService;
     private final NetClient<SyncplayMessage> netClient;
     private final DataProcessor dataProcessor;
     private FileDataExtractor fileDataExtractor;
@@ -47,6 +50,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
                 .setPaused(true)
                 .setDoSeek(false))
         ;
+        timingService = new TimingServiceImpl();
     }
 
     @Override
@@ -302,7 +306,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
      * @return The current time, in seconds.
      */
     private double getNow() {
-        return System.currentTimeMillis() / 1000.0;
+        return timingService.getCurrentTime() / 1000.0;
     }
 
 }

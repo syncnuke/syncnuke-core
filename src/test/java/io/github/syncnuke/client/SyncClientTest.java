@@ -4,6 +4,7 @@ import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.service.TimingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,11 +30,13 @@ class SyncClientTest {
     @Mock
     Codec<Object> codec;
 
+    TestableTimingService timingService;
     TestableSyncClient client;
 
     @BeforeEach
     void setUp() {
-        client = spy(new TestableSyncClient(0, player, listener, netClient));
+        timingService = new TestableTimingService();
+        client = spy(new TestableSyncClient(0, player, listener, netClient, timingService));
     }
 
     @Test
@@ -101,8 +104,8 @@ class SyncClientTest {
     void isSignificantChange_ReturnsTrue_WhenPlaybackSpeedIsInvalid(double speed) {
         when(player.getPlaybackSpeed()).thenReturn(speed);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+        timingService.advanceTimeBy(1);
 
-        client.advanceTimeBy(1);
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
 
         assertTrue(result);
@@ -112,7 +115,7 @@ class SyncClientTest {
     void isSignificantChange_ReturnsTrue_WhenDriftExceedsThreshold() {
         when(player.getPlaybackSpeed()).thenReturn(1.0);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        client.advanceTimeBy(1);
+        timingService.advanceTimeBy(1);
 
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.51);
 
@@ -123,7 +126,7 @@ class SyncClientTest {
     void isSignificantChange_ReturnsFalse_WhenExpectedAdvanceIsTooSmall() {
         when(player.getPlaybackSpeed()).thenReturn(0.000000000001); // Cause multiplication to lead to 0 millis
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        client.advanceTimeBy(1);
+        timingService.advanceTimeBy(1);
 
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 10.0);
 
@@ -134,8 +137,8 @@ class SyncClientTest {
     void isSignificantChange_ReturnsFalse_WhenDriftUnderThreshold() {
         when(player.getPlaybackSpeed()).thenReturn(1.0);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+        timingService.advanceTimeBy(600);
 
-        client.advanceTimeBy(600);
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
 
         assertFalse(result);
