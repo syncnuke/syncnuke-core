@@ -88,14 +88,57 @@ class SyncClientTest {
     }
 
     @Test
+    void isSignificantChange_ReturnsTrue_WhenPausedAndSeeking() {
+        client.updateTracking(SyncClient.PAUSE_STATUS, 10.0);
+
+        boolean result = client.isSignificantChange(SyncClient.PAUSE_STATUS, 11.1);
+
+        assertTrue(result);
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0.0, -0.1})
+    void isSignificantChange_ReturnsTrue_WhenPlaybackSpeedIsInvalid(double speed) throws InterruptedException {
+        when(player.getPlaybackSpeed()).thenReturn(speed);
+        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+
+        Thread.sleep(1);
+        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
+
+        assertTrue(result);
+    }
+
+    @Test
     void isSignificantChange_ReturnsTrue_WhenDriftExceedsThreshold() throws InterruptedException {
         when(player.getPlaybackSpeed()).thenReturn(1.0);
         client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        Thread.sleep(200);                       // simulate passage of time
+        Thread.sleep(1);
 
         boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.51);
 
         assertTrue(result);
+    }
+
+    @Test
+    void isSignificantChange_ReturnsFalse_WhenExpectedAdvanceIsTooSmall() throws InterruptedException {
+        when(player.getPlaybackSpeed()).thenReturn(0.000000000001); // Cause multiplication to lead to 0 millis
+        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+        Thread.sleep(1);
+
+        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 10.0);
+
+        assertFalse(result);
+    }
+
+    @Test
+    void isSignificantChange_ReturnsFalse_WhenDriftUnderThreshold() throws InterruptedException {
+        when(player.getPlaybackSpeed()).thenReturn(1.0);
+        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+
+        Thread.sleep(600);
+        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
+
+        assertFalse(result);
     }
 
 }
