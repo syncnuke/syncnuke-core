@@ -8,6 +8,9 @@ import lombok.extern.slf4j.Slf4j;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 
+/**
+ * Wrapper class for SyncClient instances, handling instantiation and thread safety.
+ */
 @Slf4j
 public class SyncManager implements VideoPlayerEventListener {
 
