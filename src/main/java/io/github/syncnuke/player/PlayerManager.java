@@ -19,7 +19,7 @@ public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
 
     private static final TaggedLogger log = Logger.tag("PlayerManager");
     private static final int UPDATE_COOLDOWN = 30; // milliseconds
-    private static final double DRIFT_THRESHOLD = 0.1; // %, error threshold for drift detection
+    private static final double DRIFT_THRESHOLD = 200; // milliseconds, error threshold for drift detection
 
     private static volatile PlayerManager instance;
 
@@ -41,7 +41,11 @@ public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
     }
 
     public static PlayerManager getInstance() {
-        return instance != null ? instance : new PlayerManager();
+        if (instance != null) {
+            return instance;
+        }
+        instance = new PlayerManager();
+        return instance;
     }
 
     public void start(VideoPlayer videoPlayer) {
@@ -123,13 +127,9 @@ public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
             return false;
         }
         double positionDiff = Math.abs(currentPosition - playerState.getPosition()) * 1000; // in milliseconds
-        if (positionDiff < UPDATE_COOLDOWN) {
-            return false;
-        }
-        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
 
         // Progress change does not match expected change based on playback speed, so a seek has occurred
-        return relativeError > DRIFT_THRESHOLD;
+        return positionDiff > DRIFT_THRESHOLD;
     }
 
     private void updateState(Runnable updateTask) {
@@ -138,9 +138,12 @@ public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
                 throw new IllegalStateException("Attempted to send update request without a video player initialized.");
             }
             if (onCooldown()) {
-                // The player's updating too fast, set it back to the last agreed state
-                updatePlayer();
-                log.debug("Update skipped due to cooldown. Player state reset to last known state.");
+                // The player's updating too fast, save state to send on next scheduled update
+                playerState.setPlaybackState(videoPlayer.isPaused() ? PlaybackState.PAUSED : PlaybackState.PLAYING);
+                playerState.setPosition(videoPlayer.getPosition());
+                playerState.setPlaybackSpeed(videoPlayer.getPlaybackSpeed());
+//                updatePlayer();
+//                log.debug("Update skipped due to cooldown. Player state reset to last known state.");
             } else {
                 // Update the server state
                 updateTask.run();
@@ -176,14 +179,17 @@ public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
         }
 
         // Playback progress should match the server
-        if (!statePaused) {
-            long currentTime = timingService.getCurrentTime();
-            long timeDiff = currentTime - playerState.getLastUpdateTime();
-            double expectedAdvance = timeDiff * playerState.getPlaybackSpeed();
-            double newPosition = playerState.getPosition() + expectedAdvance / 1000.0; // Convert milliseconds to seconds
-            playerState.setPosition(newPosition);
+        if (isSignificantProgressChange()) {
+            if (!statePaused) {
+                long currentTime = timingService.getCurrentTime();
+                long timeDiff = currentTime - playerState.getLastUpdateTime();
+                double expectedAdvance = timeDiff * playerState.getPlaybackSpeed();
+                double newPosition = playerState.getPosition() + expectedAdvance / 1000.0; // Convert milliseconds to seconds
+                playerState.setPosition(newPosition);
+            }
+            videoPlayer.seek(playerState.getPosition());
+            playerState.setLastUpdateTime(timingService.getCurrentTime());
         }
-        videoPlayer.seek(playerState.getPosition());
 
         // Playback speed should match the server
         if (videoPlayer.getPlaybackSpeed() != playerState.getPlaybackSpeed()) {
