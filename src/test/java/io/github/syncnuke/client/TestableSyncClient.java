@@ -1,7 +1,7 @@
 package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 import io.github.syncnuke.service.TimingService;
 import lombok.experimental.Delegate;
@@ -17,10 +17,10 @@ final class TestableSyncClient extends SyncClient<Object> {
     private final AtomicInteger keepAliveCount = new AtomicInteger();
 
     TestableSyncClient(int keepAliveInterval,
-                       VideoPlayer player,
+                       PlayerManager videoPlayer,
                        VideoPlayerEventListener listener,
                        NetClient<Object> netClient, TimingService timingService) {
-        super(keepAliveInterval, player, timingService);
+        super(keepAliveInterval, videoPlayer, timingService);
         this.listener = listener;
         this.netClient = netClient;
     }

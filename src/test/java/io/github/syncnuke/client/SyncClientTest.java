@@ -2,7 +2,7 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
@@ -23,7 +23,7 @@ import static org.mockito.Mockito.*;
 class SyncClientTest {
 
     @Mock
-    VideoPlayer player;
+    PlayerManager videoPlayer;
     @Mock
     VideoPlayerEventListener listener;
     @Mock
@@ -39,8 +39,8 @@ class SyncClientTest {
     void setUp() {
         timingService = new TestableTimingService();
         playerStatus = new PlayerState();
-        lenient().when(player.getStatus()).thenReturn(playerStatus);
-        client = spy(new TestableSyncClient(0, player, listener, netClient, timingService));
+        lenient().when(videoPlayer.getStatus()).thenReturn(playerStatus);
+        client = spy(new TestableSyncClient(0, videoPlayer, listener, netClient, timingService));
     }
 
     @Test

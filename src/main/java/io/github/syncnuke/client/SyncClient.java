@@ -2,7 +2,7 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Base class implementation for video synchronization clients. Responsibilities include:
  * <ul>
  *   <li>Playback change detection to prevent unnecessary updates</li>
- *   <li>Centralized access to a {@link VideoPlayer} instance</li>
+ *   <li>Centralized access to a {@link PlayerManager} instance</li>
  *   <li>Setting up a networking client for synchronization</li>
  *   <li>Preventing time-outs through a keep-alive mechanism</li>
  * </ul>
@@ -28,7 +28,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
 
     @Getter
-    private final VideoPlayer player;
+    private final PlayerManager player;
 
     @Getter
     private final TimingService timingService;
@@ -44,11 +44,11 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     private ScheduledFuture<?> keepAliveTask;
     private final AtomicLong lastMessageSentTime = new AtomicLong();
 
-    protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer) {
+    protected SyncClient(int keepAliveInterval, PlayerManager videoPlayer) {
         this(keepAliveInterval, videoPlayer, new TimingServiceImpl());
     }
 
-    protected SyncClient(int keepAliveInterval, VideoPlayer videoPlayer, TimingService timingService) {
+    protected SyncClient(int keepAliveInterval, PlayerManager videoPlayer, TimingService timingService) {
         this.player = videoPlayer;
         this.timingService = timingService;
         startKeepAliveTask(keepAliveInterval);
@@ -197,7 +197,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
         try {
             player.close();
         } catch (Exception e) {
-            log.warn("Failed to close VideoPlayer: {}", e.getMessage());
+            log.warn("Failed to close video player: {}", e.getMessage());
         }
     }
 

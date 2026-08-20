@@ -10,7 +10,7 @@ import io.github.syncnuke.client.internal.syncplay.data.builder.HelloMessageBuil
 import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
@@ -35,15 +35,15 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
 
     private String username;
 
-    public SyncplayClient(String host, int port, VideoPlayer videoPlayer) {
+    public SyncplayClient(String host, int port, PlayerManager videoPlayer) {
         this(new DataProcessor(), host, port, videoPlayer);
     }
 
-    public SyncplayClient(DataProcessor dataProcessor, String host, VideoPlayer videoPlayer) {
+    public SyncplayClient(DataProcessor dataProcessor, String host, PlayerManager videoPlayer) {
         this(dataProcessor, host, DEFAULT_PORT, videoPlayer);
     }
 
-    public SyncplayClient(DataProcessor dataProcessor, String host, int port, VideoPlayer videoPlayer) {
+    public SyncplayClient(DataProcessor dataProcessor, String host, int port, PlayerManager videoPlayer) {
         super(1000, videoPlayer);
         this.netClient = new TcpClient<>();
         connect(host, port, new ProtoJsonCodec());

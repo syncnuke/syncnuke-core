@@ -7,7 +7,7 @@ import io.github.syncnuke.client.internal.datasaver.data.Command;
 import io.github.syncnuke.client.internal.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.TcpClient;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import lombok.extern.slf4j.Slf4j;
@@ -30,14 +30,14 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
     private final int debounceDelay; // in milliseconds
 
-    public DataSaverClient(String host, int port, int debounceDelay, VideoPlayer videoPlayer) {
+    public DataSaverClient(String host, int port, int debounceDelay, PlayerManager videoPlayer) {
         super(10000, videoPlayer);
         this.netClient = new TcpClient<>();
         connect(host, port, new BaseCodec());
         this.debounceDelay = debounceDelay;
     }
 
-    public DataSaverClient(String host, int port, VideoPlayer videoPlayer) {
+    public DataSaverClient(String host, int port, PlayerManager videoPlayer) {
         this(host, port, 0, videoPlayer);
     }
 

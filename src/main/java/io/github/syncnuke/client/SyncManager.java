@@ -1,12 +1,11 @@
 package io.github.syncnuke.client;
 
 import io.github.syncnuke.player.PlayerManager;
-import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
 import io.github.syncnuke.player.data.PlayerState;
-import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,34 +24,27 @@ public class SyncManager implements VideoPlayerEventListener {
 
     // Sync protocol variables
     private SyncClient<?> syncClient;
-    @Setter
-    private PlayerManager videoPlayer;
+    private final PlayerManager videoPlayer;
 
     private SyncManager(PlayerManager videoPlayer) {
         this.videoPlayer = videoPlayer;
     }
 
-    public static SyncManager getInstance(VideoPlayer videoPlayer) {
+    public static SyncManager getInstance(PlayerManager videoPlayer) {
+        Objects.requireNonNull(videoPlayer, "videoPlayer");
         if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
             return instance;
         }
-        PlayerManager playerManager;
 
-        if (videoPlayer instanceof PlayerManager) {
-            playerManager = (PlayerManager) videoPlayer;
-        } else {
-            throw new IllegalArgumentException("SyncManager requires a controlled PlayerManager.");
-        }
-
-        instance = new SyncManager(playerManager);
-        playerManager.setListener(instance);
+        instance = new SyncManager(videoPlayer);
+        videoPlayer.setListener(instance);
 
         return instance;
     }
 
     public void start(String protocol, String server, int port, String username, String room) {
         synchronized (lock) {
-            if (videoPlayer == null || syncClient != null || starting) {
+            if (syncClient != null || starting) {
                 return;
             }
             starting = true;
