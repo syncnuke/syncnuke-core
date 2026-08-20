@@ -102,23 +102,17 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         }
 
         boolean paused = status.getPlaybackState() == PlaybackState.PAUSED;
-        int currentStatus = paused ? PAUSE_STATUS : PLAY_STATUS;
         double position = status.getPosition();
         boolean playbackStateChanged =
                 state.getPlaystate().getPaused() != paused;
 
         log.debug("Player status event detected: {}", status);
-        if (isSignificantChange(
-                currentStatus,
-                position,
-                status.getPlaybackSpeed()
-        )) {
+        if (isSignificantChange(status)) {
             state.getPlaystateBuilder().setPosition(position);
             state.getPlaystateBuilder().setPaused(paused);
             state.getPlaystateBuilder().setDoSeek(!playbackStateChanged);
             acknowledgeState(status);
         }
-        updateTracking(currentStatus, position);
     }
 
     @Override
@@ -129,7 +123,6 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         state.getPlaystateBuilder().setPaused(paused);
         state.getPlaystateBuilder().setPosition(position);
         send(state.build());
-        updateTracking(paused ? PAUSE_STATUS : PLAY_STATUS, position);
     }
 
     /**
@@ -137,6 +130,15 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
      */
     private void handleStateUpdate(StateMessage stateData) {
         updatePing(stateData);
+
+        PlayerState serverStatus = getPlayer().getStatus();
+        serverStatus.setPlaybackState(
+                stateData.getPlaystate().getPaused()
+                        ? PlaybackState.PAUSED
+                        : PlaybackState.PLAYING
+        );
+        serverStatus.setPosition(stateData.getPlaystate().getPosition());
+        updateServerState(serverStatus);
 
         if (wasSentByUs(stateData)) {
             // The server is telling us about our update to get on the same page
@@ -150,7 +152,7 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
             return;
         }
 
-        updatePlayState(stateData);
+        updatePlayState(stateData, serverStatus);
         updateIgnoringOnTheFly(stateData);
         if (stateData.getPlaystate().getDoSeek()) {
             // We need to acknowledge twice to prove we've executed the seek
@@ -167,25 +169,23 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
         return username.equals(stateData.getPlaystate().getSetBy());
     }
 
-    private void updatePlayState(StateMessage stateData) {
-        PlayerState playerStatus = getPlayer().getStatus();
-        boolean wasPaused = playerStatus.getPlaybackState() == PlaybackState.PAUSED;
-        boolean isPaused = stateData.getPlaystate().getPaused();
-
-        if (isPaused && !wasPaused) {
-            getPlayer().pause();
-        } else if (!isPaused && wasPaused) {
-            getPlayer().play();
+    private void updatePlayState(
+            StateMessage stateData,
+            PlayerState serverStatus
+    ) {
+        PlayerState targetStatus = serverStatus;
+        if (!stateData.getPlaystate().getDoSeek()) {
+            targetStatus = serverStatus.copy();
+            targetStatus.setPosition(getPlayer().getStatus().getPosition());
         }
+        getPlayer().updateStatus(targetStatus);
 
         state.getPlaystateBuilder().setPaused(stateData.getPlaystate().getPaused());
         state.getPlaystateBuilder().setDoSeek(stateData.getPlaystate().getDoSeek());
 
-        // Handle seeking
         if (stateData.getPlaystate().getDoSeek()) {
             log.debug("Seek detected, adjusting position to: {}", stateData.getPlaystate().getPosition());
             state.getPlaystateBuilder().setPosition(stateData.getPlaystate().getPosition());
-            getPlayer().seek(state.getPlaystate().getPosition());
         }
     }
 

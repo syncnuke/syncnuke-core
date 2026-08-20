@@ -4,11 +4,14 @@ import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.player.data.PlaybackState;
+import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -25,18 +28,13 @@ import java.util.concurrent.atomic.AtomicLong;
 @Slf4j
 public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoCloseable {
 
-    protected static final int PLAY_STATUS = 1, PAUSE_STATUS = 0;
-
     @Getter
     private final PlayerManager player;
 
     @Getter
     private final TimingService timingService;
 
-    // Drift tracking
-    private volatile Integer prevStatus; // 1 = playing, 0 = paused
-    private volatile Double prevProgress;
-    private volatile long prevProgTime;
+    private volatile PlayerState serverState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
@@ -109,40 +107,33 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
 
     /**
      * Used to filter out video state updates that are too minor to trigger server notifications.
-     * @param currentStatus     the status of the video player in number format
-     * @param currentProgress   the current progress of the video player
+     *
+     * TODO: Decide whether this policy belongs to the SyncNuke standard or to each protocol implementation.
+     *
+     * @param localStatus the status reported by the local video player
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
-    protected boolean isSignificantChange(int currentStatus, double currentProgress) {
-        return isSignificantChange(
-                currentStatus,
-                currentProgress,
-                player.getStatus().getPlaybackSpeed()
-        );
-    }
-
-    protected boolean isSignificantChange(
-            int currentStatus,
-            double currentProgress,
-            double playbackSpeed
-    ) {
-        if (prevStatus == null || prevProgress == null) {
+    protected boolean isSignificantChange(PlayerState localStatus) {
+        Objects.requireNonNull(localStatus, "localStatus");
+        if (serverState == null) {
             return true;
         }
 
-        if (isStatusChanged(currentStatus)) {
+        if (localStatus.getPlaybackState() != serverState.getPlaybackState()) {
+            // Status changed
             return true;
         }
 
-        if (Math.abs(currentProgress - prevProgress) <= MIN_PROG_CHANGE) {
+        if (Math.abs(localStatus.getPosition() - serverState.getPosition()) <= MIN_PROG_CHANGE) {
             // Progress change is not significant enough
             return false;
         }
 
         long currentTime = getCurrentTime();
-        long timeDiff = currentTime - prevProgTime;
+        long timeDiff = currentTime - serverState.getLastUpdateTime();
 
-        boolean paused = currentStatus == PAUSE_STATUS;
+        boolean paused = localStatus.getPlaybackState() == PlaybackState.PAUSED;
+        double playbackSpeed = localStatus.getPlaybackSpeed();
         if (paused || timeDiff <= 0 || playbackSpeed <= 0) {
             // Return exclusively based on progress change
             return true;
@@ -153,25 +144,20 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
             // Prevent division by zero
             return false;
         }
-        double positionDiff = Math.abs(currentProgress - prevProgress) * 1000; // in milliseconds
+        double positionDiff = Math.abs(localStatus.getPosition() - serverState.getPosition()) * 1000; // in milliseconds
         double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
 
         // Progress change does not match expected change based on playback speed
         return relativeError > DRIFT_THRESHOLD;
     }
 
-    private boolean isStatusChanged(int currentStatus) {
-        return currentStatus != prevStatus;
-    }
-
-    protected void updateTracking(int currentStatus, double currentProgress) {
-        this.prevStatus = currentStatus;
-        updateTracking(currentProgress);
-    }
-
-    protected void updateTracking(double currentProgress) {
-        this.prevProgress = currentProgress;
-        this.prevProgTime = getCurrentTime();
+    /**
+     * Records playback state decoded from an inbound server command.
+     */
+    protected final void updateServerState(PlayerState serverStatus) {
+        PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
+        expectation.setLastUpdateTime(getCurrentTime());
+        serverState = expectation;
     }
 
     /**

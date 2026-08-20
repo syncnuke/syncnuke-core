@@ -3,9 +3,8 @@ package io.github.syncnuke.client;
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.PlayerManager;
-import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
-import io.github.syncnuke.service.TimingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,22 +24,17 @@ class SyncClientTest {
     @Mock
     PlayerManager videoPlayer;
     @Mock
-    VideoPlayerEventListener listener;
-    @Mock
     NetClient<Object> netClient;
     @Mock
     Codec<Object> codec;
 
     TestableTimingService timingService;
     TestableSyncClient client;
-    PlayerState playerStatus;
 
     @BeforeEach
     void setUp() {
         timingService = new TestableTimingService();
-        playerStatus = new PlayerState();
-        lenient().when(videoPlayer.getStatus()).thenReturn(playerStatus);
-        client = spy(new TestableSyncClient(0, videoPlayer, listener, netClient, timingService));
+        client = spy(new TestableSyncClient(0, videoPlayer, netClient, timingService));
     }
 
     @Test
@@ -66,86 +60,175 @@ class SyncClientTest {
         verify(netClient).send(payload);
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {SyncClient.PLAY_STATUS, SyncClient.PAUSE_STATUS})
-    void isSignificantChange_ReturnsTrue_BeforeUpdateTrackingIsCalled(int status) {
-        verify(client, never()).updateTracking(anyInt(), anyDouble());
+    @Test
+    void isSignificantChange_returnsTrueBeforeServerExpectationIsRecorded() {
+        PlayerState localStatus = state(PlaybackState.PAUSED, 0.0, 1.0);
 
-        boolean result = client.isSignificantChange(status, 0.0);
+        assertTrue(client.isSignificantChange(localStatus));
+    }
+
+    @Test
+    void isSignificantChange_returnsTrueWhenPlaybackStateChanged() {
+        client.updateServerState(
+                state(PlaybackState.PAUSED, 0.0, 1.0)
+        );
+
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 0.0, 1.0)
+        );
 
         assertTrue(result);
     }
 
     @Test
-    void isSignificantChange_ReturnsTrue_WhenStatusChanged() {
-        client.updateTracking(SyncClient.PAUSE_STATUS, 0.0);
+    void isSignificantChange_returnsFalseWhenProgressChangeBelowThreshold() {
+        client.updateServerState(
+                state(PlaybackState.PLAYING, 10.0, 1.0)
+        );
 
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.0);
-
-        assertTrue(result);
-    }
-
-    @Test
-    void isSignificantChange_ReturnsFalse_WhenProgressChangeBelowThreshold() {
-        client.updateTracking(SyncClient.PLAY_STATUS, 10.0);
-
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 10.3);
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 10.3, 1.0)
+        );
 
         assertFalse(result);
     }
 
     @Test
-    void isSignificantChange_ReturnsTrue_WhenPausedAndSeeking() {
-        client.updateTracking(SyncClient.PAUSE_STATUS, 10.0);
+    void isSignificantChange_returnsTrueWhenPausedAndSeeking() {
+        client.updateServerState(
+                state(PlaybackState.PAUSED, 10.0, 1.0)
+        );
 
-        boolean result = client.isSignificantChange(SyncClient.PAUSE_STATUS, 11.1);
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PAUSED, 11.1, 1.0)
+        );
 
         assertTrue(result);
     }
 
     @ParameterizedTest
     @ValueSource(doubles = {0.0, -0.1})
-    void isSignificantChange_ReturnsTrue_WhenPlaybackSpeedIsInvalid(double speed) {
-        playerStatus.setPlaybackSpeed(speed);
-        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+    void isSignificantChange_returnsTrueWhenPlaybackSpeedIsInvalid(
+            double speed
+    ) {
+        client.updateServerState(
+                state(PlaybackState.PLAYING, 0.0, 1.0)
+        );
         timingService.advanceTimeBy(1);
 
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 0.6, speed)
+        );
 
         assertTrue(result);
     }
 
     @Test
-    void isSignificantChange_ReturnsTrue_WhenDriftExceedsThreshold() {
-        playerStatus.setPlaybackSpeed(1.0);
-        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        timingService.advanceTimeBy(1);
-
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.51);
-
-        assertTrue(result);
-    }
-
-    @Test
-    void isSignificantChange_ReturnsFalse_WhenExpectedAdvanceIsTooSmall() {
-        playerStatus.setPlaybackSpeed(0.000000000001); // Cause multiplication to lead to 0 millis
-        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
-        timingService.advanceTimeBy(1);
-
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 10.0);
-
-        assertFalse(result);
-    }
-
-    @Test
-    void isSignificantChange_ReturnsFalse_WhenDriftUnderThreshold() {
-        playerStatus.setPlaybackSpeed(1.0);
-        client.updateTracking(SyncClient.PLAY_STATUS, 0.0);
+    void isSignificantChange_returnsTrueWhenSeekDiffersFromProgression() {
+        client.updateServerState(
+                state(PlaybackState.PLAYING, 0.0, 1.0)
+        );
         timingService.advanceTimeBy(600);
 
-        boolean result = client.isSignificantChange(SyncClient.PLAY_STATUS, 0.6);
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 2.0, 1.0)
+        );
+
+        assertTrue(result);
+    }
+
+    @Test
+    void isSignificantChange_returnsFalseWhenExpectedAdvanceIsTooSmall() {
+        client.updateServerState(
+                state(PlaybackState.PLAYING, 0.0, 1.0)
+        );
+        timingService.advanceTimeBy(1);
+
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 10.0, 0.000000000001)
+        );
 
         assertFalse(result);
+    }
+
+    @Test
+    void isSignificantChange_returnsFalseForOrdinaryProgression() {
+        client.updateServerState(
+                state(PlaybackState.PLAYING, 0.0, 1.0)
+        );
+        timingService.advanceTimeBy(600);
+
+        boolean result = client.isSignificantChange(
+                state(PlaybackState.PLAYING, 0.6, 1.0)
+        );
+
+        assertFalse(result);
+    }
+
+    @Test
+    void handleResponse_recordsExpectationBeforeApplyingStatus() {
+        PlayerState serverStatus =
+                state(PlaybackState.PAUSED, 10.0, 1.0);
+        doAnswer(invocation -> {
+            assertFalse(client.isSignificantChange(serverStatus.copy()));
+            return null;
+        }).when(videoPlayer).updateStatus(serverStatus);
+
+        client.handleResponse(serverStatus);
+
+        verify(videoPlayer).updateStatus(same(serverStatus));
+    }
+
+    @Test
+    void localStatusCanSendWithoutChangingServerExpectation() {
+        PlayerState serverStatus =
+                state(PlaybackState.PAUSED, 10.0, 1.0);
+        client.updateServerState(serverStatus);
+        PlayerState localStatus =
+                state(PlaybackState.PLAYING, 20.0, 1.0);
+
+        client.onStatusChange(localStatus);
+
+        verify(netClient).send(same(localStatus));
+        assertFalse(client.isSignificantChange(serverStatus.copy()));
+    }
+
+    @Test
+    void sendsAndKeepAliveDoNotChangeServerExpectation() {
+        PlayerState serverStatus =
+                state(PlaybackState.PAUSED, 10.0, 1.0);
+        client.updateServerState(serverStatus);
+
+        client.send(new Object());
+        client.sendKeepAlive();
+
+        assertFalse(client.isSignificantChange(serverStatus.copy()));
+    }
+
+    @Test
+    void recordServerExpectation_keepsAnOwnedSnapshot() {
+        PlayerState serverStatus =
+                state(PlaybackState.PAUSED, 10.0, 1.0);
+        client.updateServerState(serverStatus);
+
+        serverStatus.setPlaybackState(PlaybackState.PLAYING);
+        serverStatus.setPosition(99.0);
+
+        assertFalse(client.isSignificantChange(
+                state(PlaybackState.PAUSED, 10.0, 1.0)
+        ));
+    }
+
+    private static PlayerState state(
+            PlaybackState playbackState,
+            double position,
+            double playbackSpeed
+    ) {
+        PlayerState status = new PlayerState();
+        status.setPlaybackState(playbackState);
+        status.setPosition(position);
+        status.setPlaybackSpeed(playbackSpeed);
+        return status;
     }
 
 }
