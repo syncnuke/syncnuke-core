@@ -1,12 +1,14 @@
 package io.github.syncnuke.client;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
+import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.player.data.PlayerState;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Wrapper class for SyncClient instances, handling instantiation and thread safety.
@@ -24,9 +26,9 @@ public class SyncManager implements VideoPlayerEventListener {
     // Sync protocol variables
     private SyncClient<?> syncClient;
     @Setter
-    private VideoPlayer videoPlayer;
+    private PlayerManager videoPlayer;
 
-    private SyncManager(VideoPlayer videoPlayer) {
+    private SyncManager(PlayerManager videoPlayer) {
         this.videoPlayer = videoPlayer;
     }
 
@@ -34,8 +36,16 @@ public class SyncManager implements VideoPlayerEventListener {
         if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
             return instance;
         }
-        instance = new SyncManager(videoPlayer);
-        videoPlayer.setEventListener(instance);
+        PlayerManager playerManager;
+
+        if (videoPlayer instanceof PlayerManager) {
+            playerManager = (PlayerManager) videoPlayer;
+        } else {
+            throw new IllegalArgumentException("SyncManager requires a controlled PlayerManager.");
+        }
+
+        instance = new SyncManager(playerManager);
+        playerManager.setListener(instance);
 
         return instance;
     }
@@ -70,33 +80,11 @@ public class SyncManager implements VideoPlayerEventListener {
     }
 
     @Override
-    public void onPlay() {
+    public void onStatusChange(PlayerState status) {
         syncExecutor.submit(() -> {
             synchronized (lock) {
                 if (syncClient != null) {
-                    syncClient.onPlay();
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onPause() {
-        syncExecutor.submit(() -> {
-            synchronized (lock) {
-                if (syncClient != null) {
-                    syncClient.onPause();
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onSeek(double position) {
-        syncExecutor.submit(() -> {
-            synchronized (lock) {
-                if (syncClient != null) {
-                    syncClient.onSeek(position);
+                    syncClient.onStatusChange(status);
                 }
             }
         });

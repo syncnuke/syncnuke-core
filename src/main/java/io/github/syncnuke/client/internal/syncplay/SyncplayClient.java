@@ -11,6 +11,8 @@ import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationE
 import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
 import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.data.PlaybackState;
+import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -93,58 +95,41 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     @Override
-    public void onPlay() {
-        log.debug("Play event detected");
-        int currentStatus = PLAY_STATUS;
-        double position = getPlayer().getPosition();
-        if (isSignificantChange(currentStatus, position)) {
-            log.info("Play command sent due to significant change");
-            state.getPlaystateBuilder().setPosition(position);
-            state.getPlaystateBuilder().setPaused(false);
-            acknowledgeState();
-        }
-        updateTracking(currentStatus, position);
-    }
-
-    @Override
-    public void onPause() {
-        log.debug("Pause event detected");
-        int currentStatus = PAUSE_STATUS;
-        double position = getPlayer().getPosition();
-        if (isSignificantChange(currentStatus, position)) {
-            log.info("Pause command sent due to significant change");
-            state.getPlaystateBuilder().setPosition(position);
-            state.getPlaystateBuilder().setPaused(true);
-            acknowledgeState();
-        }
-        updateTracking(currentStatus, position);
-    }
-
-    @Override
-    public void onSeek(double position) {
+    public void onStatusChange(PlayerState status) {
         if (state == null || state.getPlaystate() == null) {
-            log.error("State or playstate is null during onSeek");
+            log.error("State or playstate is null during status change");
             return;
         }
-        log.debug("Seek event detected: {}", position);
-        int currentStatus = getPlayer().isPaused() ? PAUSE_STATUS : PLAY_STATUS;
-        if (isSignificantChange(currentStatus, position)) {
-            log.info("Seek command sent due to significant change");
+
+        boolean paused = status.getPlaybackState() == PlaybackState.PAUSED;
+        int currentStatus = paused ? PAUSE_STATUS : PLAY_STATUS;
+        double position = status.getPosition();
+        boolean playbackStateChanged =
+                state.getPlaystate().getPaused() != paused;
+
+        log.debug("Player status event detected: {}", status);
+        if (isSignificantChange(
+                currentStatus,
+                position,
+                status.getPlaybackSpeed()
+        )) {
             state.getPlaystateBuilder().setPosition(position);
-            state.getPlaystateBuilder().setDoSeek(true);
-            acknowledgeState();
+            state.getPlaystateBuilder().setPaused(paused);
+            state.getPlaystateBuilder().setDoSeek(!playbackStateChanged);
+            acknowledgeState(status);
         }
         updateTracking(currentStatus, position);
     }
 
     @Override
     protected void sendKeepAlive() {
-        boolean isPaused = getPlayer().isPaused();
-        double position = getPlayer().getPosition();
-        state.getPlaystateBuilder().setPaused(isPaused);
+        PlayerState status = getPlayer().getStatus();
+        boolean paused = status.getPlaybackState() == PlaybackState.PAUSED;
+        double position = status.getPosition();
+        state.getPlaystateBuilder().setPaused(paused);
         state.getPlaystateBuilder().setPosition(position);
         send(state.build());
-        updateTracking(isPaused ? PAUSE_STATUS : PLAY_STATUS, position);
+        updateTracking(paused ? PAUSE_STATUS : PLAY_STATUS, position);
     }
 
     /**
@@ -183,7 +168,8 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     private void updatePlayState(StateMessage stateData) {
-        boolean wasPaused = getPlayer().isPaused();
+        PlayerState playerStatus = getPlayer().getStatus();
+        boolean wasPaused = playerStatus.getPlaybackState() == PlaybackState.PAUSED;
         boolean isPaused = stateData.getPlaystate().getPaused();
 
         if (isPaused && !wasPaused) {
@@ -240,9 +226,14 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     private void acknowledgeState() {
-        // TODO: Remove parsing from VideoPlayer if facing bugs
-        state.getPlaystateBuilder().setPaused(getPlayer().isPaused());
-        state.getPlaystateBuilder().setPosition(getPlayer().getPosition());
+        acknowledgeState(getPlayer().getStatus());
+    }
+
+    private void acknowledgeState(PlayerState status) {
+        state.getPlaystateBuilder().setPaused(
+                status.getPlaybackState() == PlaybackState.PAUSED
+        );
+        state.getPlaystateBuilder().setPosition(status.getPosition());
         send(state.build());
         log.debug("State acknowledged at position: {}", state.getPlaystate().getPosition());
     }
@@ -263,7 +254,10 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
             // TODO: Remove this and find a better way to handle playback start
             if (setData.hasReady()) {
                 getPlayer().play();
-                state.getPlaystateBuilder().setPaused(getPlayer().isPaused());
+                PlayerState status = getPlayer().getStatus();
+                state.getPlaystateBuilder().setPaused(
+                        status.getPlaybackState() == PlaybackState.PAUSED
+                );
             }
         }
     }

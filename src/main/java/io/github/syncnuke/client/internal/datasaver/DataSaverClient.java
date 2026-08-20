@@ -1,14 +1,16 @@
 package io.github.syncnuke.client.internal.datasaver;
 
-import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.client.internal.net.TcpClient;
-import lombok.extern.slf4j.Slf4j;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.datasaver.data.BaseCodec;
 import io.github.syncnuke.client.internal.datasaver.data.BaseData;
 import io.github.syncnuke.client.internal.datasaver.data.Command;
 import io.github.syncnuke.client.internal.datasaver.data.State;
+import io.github.syncnuke.client.internal.net.NetClient;
+import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.data.PlaybackState;
+import io.github.syncnuke.player.data.PlayerState;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -64,67 +66,67 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     private void handleStateUpdate(BaseData data) {
-        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
+        PlayerState playerStatus = getPlayer().getStatus();
+        State currentState = getState(playerStatus);
 
-            serverCommandInProgress.set(true);
-            try {
-                if (data.getState() != currentState) {
-                    if (data.getState() == State.PLAYING) {
-                        getPlayer().play();
-                        log.info("Play command executed from server");
-                    } else {
-                        getPlayer().pause();
-                        log.info("Pause command executed from server");
-                    }
+        serverCommandInProgress.set(true);
+        try {
+            if (data.getState() != currentState) {
+                if (data.getState() == State.PLAYING) {
+                    getPlayer().play();
+                    log.info("Play command executed from server");
+                } else {
+                    getPlayer().pause();
+                    log.info("Pause command executed from server");
                 }
-                if (isSignificantChange(data.getState().getCode(), data.getPosition())) {
-                    getPlayer().seek(data.getPosition());
-                    log.info("Synchronized seek with server during pause change: {}", data.getPosition());
-                }
-                updateTracking(data.getState().getCode(), data.getPosition());
-            } finally {
-                serverCommandInProgress.set(false);
             }
+            if (isSignificantChange(
+                    data.getState().getCode(),
+                    data.getPosition(),
+                    playerStatus.getPlaybackSpeed()
+            )) {
+                getPlayer().seek(data.getPosition());
+                log.info(
+                        "Synchronized seek with server during pause change: {}",
+                        data.getPosition()
+                );
+            }
+            updateTracking(data.getState().getCode(), data.getPosition());
+        } finally {
+            serverCommandInProgress.set(false);
+        }
     }
 
     @Override
-    public void onPlay() {
-        if (serverCommandInProgress.get()) return;
-        log.debug("Play event detected");
+    public void onStatusChange(PlayerState status) {
+        if (serverCommandInProgress.get()) {
+            return;
+        }
+        log.debug("Player status event detected: {}", status);
 
-        State currentState = State.PLAYING;
-        double currentProgress = getPlayer().getPosition();
-        sendState(currentState, currentProgress);
-    }
-
-    @Override
-    public void onPause() {
-        if (serverCommandInProgress.get()) return;
-        log.debug("Pause event detected");
-
-        State currentState = State.PAUSED;
-        double currentProgress = getPlayer().getPosition();
-        sendState(currentState, currentProgress);
-    }
-
-    @Override
-    public void onSeek(double position) {
-        if (serverCommandInProgress.get()) return;
-        log.debug("Seek event detected: {}", position);
-
-        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
-        sendState(currentState, position);
+        sendState(
+                getState(status),
+                status.getPosition(),
+                status.getPlaybackSpeed()
+        );
     }
 
     @Override
     protected void sendKeepAlive() {
-        State currentState = getPlayer().isPaused() ? State.PAUSED : State.PLAYING;
-        double currentProgress = getPlayer().getPosition();
-        sendState(currentState, currentProgress);
+        PlayerState status = getPlayer().getStatus();
+        sendState(
+                getState(status),
+                status.getPosition(),
+                status.getPlaybackSpeed()
+        );
     }
 
-    private void sendState(State state, double progress) {
-        boolean isSignificantChange = isSignificantChange(state.getCode(), progress);
+    private State getState(PlayerState status) {
+        return status.getPlaybackState() == PlaybackState.PAUSED ? State.PAUSED : State.PLAYING;
+    }
+
+    private void sendState(State state, double progress, double playbackSpeed) {
+        boolean isSignificantChange = isSignificantChange(state.getCode(), progress, playbackSpeed);
         updateTracking(state.getCode(), progress);
         if (!isSignificantChange) {
             return;

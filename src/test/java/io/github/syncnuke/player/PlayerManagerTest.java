@@ -1,207 +1,426 @@
 package io.github.syncnuke.player;
 
+import io.github.syncnuke.player.data.PlaybackState;
+import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.Delayed;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PlayerManagerTest {
 
-    /* ---------------------------------- test fakes ---------------------------------- */
-
-    /** Simple deterministic clock / scheduler for unit tests. */
     private static final class FakeTimingService implements TimingService {
 
-        private long now;                                // “current” time in ms
+        private long now;
         private final List<Scheduled> tasks = new ArrayList<>();
 
-        @Override public long getCurrentTime() { return now; }
-
-
-
         @Override
-        public ScheduledFuture<?> schedule(Runnable task, long initialDelay, long delay, TimeUnit unit) {
-            tasks.add(new Scheduled(task, now + unit.toMillis(initialDelay), unit.toMillis(delay)));
-            return new ScheduledFuture<Runnable>() {
-                @Override public int compareTo(Delayed delayed) { return 0; }
-                @Override public boolean cancel(boolean mayInterruptIfRunning) { return tasks.removeIf(s -> s.r == task); }
-                @Override public boolean isCancelled() { return tasks.stream().anyMatch(s -> s.r == task); }
-                @Override public boolean isDone() { return false; } // always pending
-                @Override public Runnable get() { return task; } // always returns the original task
-                @Override public Runnable get(long l, TimeUnit timeUnit){ return null; }
-                @Override public long getDelay(TimeUnit unit) { return unit.convert(tasks.stream().filter(s -> s.r == task).findFirst().orElseThrow().next - now, TimeUnit.MILLISECONDS); }
-            };
+        public long getCurrentTime() {
+            return now;
         }
 
-        @Override public void shutdown() { tasks.clear(); }
+        @Override
+        public ScheduledFuture<?> schedule(
+                Runnable task,
+                long initialDelay,
+                long delay,
+                TimeUnit unit
+        ) {
+            Scheduled scheduled = new Scheduled(
+                    task,
+                    now + unit.toMillis(initialDelay),
+                    unit.toMillis(delay)
+            );
+            tasks.add(scheduled);
+            return scheduled;
+        }
 
-        /* ---------- helpers ---------- */
+        @Override
+        public void shutdown() {
+            for (Scheduled task : new ArrayList<>(tasks)) {
+                task.cancel(false);
+            }
+        }
 
-        /** Advance fake time and run any tasks whose next-run time is <= new time. */
         void advance(long millis) {
             long target = now + millis;
             while (true) {
                 Scheduled next = tasks.stream()
-                        .filter(s -> s.next <= target)
-                        .min((a, b) -> Long.compare(a.next, b.next))
+                        .filter(task -> !task.cancelled && task.next <= target)
+                        .min((left, right) -> Long.compare(left.next, right.next))
                         .orElse(null);
-                if (next == null) break;          // nothing ready
+                if (next == null) {
+                    break;
+                }
                 now = next.next;
-                next.r.run();
-                next.next += next.period;         // reschedule
+                next.task.run();
+                if (!next.cancelled) {
+                    next.next += next.period;
+                }
             }
             now = target;
         }
 
-        private static final class Scheduled {
-            final Runnable r;
-            final long period;
-            long next;
-            Scheduled(Runnable r,long initial,long period){this.r=r;this.period=period;this.next=initial;}
+        int activeTaskCount() {
+            return (int) tasks.stream()
+                    .filter(task -> !task.cancelled)
+                    .count();
+        }
+
+        private final class Scheduled implements ScheduledFuture<Object> {
+            private final Runnable task;
+            private final long period;
+            private long next;
+            private boolean cancelled;
+
+            private Scheduled(Runnable task, long next, long period) {
+                this.task = task;
+                this.next = next;
+                this.period = period;
+            }
+
+            @Override
+            public long getDelay(TimeUnit unit) {
+                return unit.convert(next - now, TimeUnit.MILLISECONDS);
+            }
+
+            @Override
+            public int compareTo(Delayed other) {
+                return Long.compare(
+                        getDelay(TimeUnit.MILLISECONDS),
+                        other.getDelay(TimeUnit.MILLISECONDS)
+                );
+            }
+
+            @Override
+            public boolean cancel(boolean mayInterruptIfRunning) {
+                cancelled = true;
+                return true;
+            }
+
+            @Override
+            public boolean isCancelled() {
+                return cancelled;
+            }
+
+            @Override
+            public boolean isDone() {
+                return cancelled;
+            }
+
+            @Override
+            public Object get() {
+                return null;
+            }
+
+            @Override
+            public Object get(long timeout, TimeUnit unit) {
+                return null;
+            }
         }
     }
 
-    /* ---------------------------------- fixtures ---------------------------------- */
-
-    @Mock private VideoPlayer videoPlayer;
-    @Mock private VideoPlayerEventListener listener;
+    @Mock
+    private VideoPlayer videoPlayer;
+    @Mock
+    private VideoPlayerEventListener listener;
 
     private FakeTimingService clock;
+    private AtomicReference<PlayerState> rawStatus;
     private PlayerManager manager;
 
     @BeforeEach
     void setUp() throws Exception {
-        // 1) fresh clock
         clock = new FakeTimingService();
+        rawStatus = new AtomicReference<>(state(PlaybackState.PAUSED, 0.0, 1.0));
+        when(videoPlayer.getStatus())
+                .thenAnswer(invocation -> rawStatus.get().copy());
 
-        // 2) fresh singleton
-        Field inst = PlayerManager.class.getDeclaredField("instance");
-        inst.setAccessible(true);
-        inst.set(null, null);
-
-        // 3) build manager with private ctor(PlayerManager(TimingService))
-        Constructor<PlayerManager> ctor =
+        Constructor<PlayerManager> constructor =
                 PlayerManager.class.getDeclaredConstructor(TimingService.class);
-        ctor.setAccessible(true);
-        manager = ctor.newInstance(clock);               // inject fake clock
-
-        // 4) basic stubbing
-        when(videoPlayer.getPlaybackSpeed()).thenReturn(1.0);
-        when(videoPlayer.getPosition()).thenReturn(0.0);
-        when(videoPlayer.isPaused()).thenReturn(true);
-
-        // 5) wire-up
-        manager.setEventListener(listener);
+        constructor.setAccessible(true);
+        manager = constructor.newInstance(clock);
+        manager.setListener(listener);
         manager.start(videoPlayer);
     }
 
     @AfterEach
-    void tearDown() throws Exception { manager.close(); }
-
-    /* ---------------------------------- tests ---------------------------------- */
+    void tearDown() throws Exception {
+        manager.close();
+    }
 
     @Test
-    void play_delegates_and_updatesState() {
+    void newPlayerState_hasSafeDefaults() {
+        PlayerState status = new PlayerState();
+
+        assertEquals(PlaybackState.PAUSED, status.getPlaybackState());
+        assertEquals(0.0, status.getPosition());
+        assertEquals(1.0, status.getPlaybackSpeed());
+    }
+
+    @Test
+    void start_capturesInitialStatusWithoutNotification() {
+        PlayerState status = manager.getStatus();
+
+        assertEquals(PlaybackState.PAUSED, status.getPlaybackState());
+        assertEquals(0.0, status.getPosition());
+        verify(videoPlayer, times(1)).getStatus();
+        verify(listener, never()).onStatusChange(any());
+    }
+
+    @Test
+    void polling_startsAtExactlyOneSecond() {
+        clock.advance(999);
+        verify(videoPlayer, times(1)).getStatus();
+
+        clock.advance(1);
+        verify(videoPlayer, times(2)).getStatus();
+    }
+
+    @Test
+    void ordinaryPlayingProgress_refreshesWithoutNotification() {
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clock.advance(1000);
+        clearInvocations(listener);
+
+        setRawStatus(PlaybackState.PLAYING, 1.0, 1.0);
+        clock.advance(1000);
+
+        verify(listener, never()).onStatusChange(any());
+        assertEquals(1.0, manager.getStatus().getPosition());
+    }
+
+    @Test
+    void seekLikeDiscrepancy_notifiesWithFullStatus() {
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clock.advance(1000);
+        clearInvocations(listener);
+
+        setRawStatus(PlaybackState.PLAYING, 2.0, 1.0);
+        clock.advance(1000);
+
+        ArgumentCaptor<PlayerState> statusCaptor =
+                ArgumentCaptor.forClass(PlayerState.class);
+        verify(listener).onStatusChange(statusCaptor.capture());
+        assertEquals(PlaybackState.PLAYING,
+                statusCaptor.getValue().getPlaybackState());
+        assertEquals(2.0, statusCaptor.getValue().getPosition());
+    }
+
+    @Test
+    void playbackStateChange_notifies() {
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+
+        clock.advance(1000);
+
+        verify(listener).onStatusChange(any());
+    }
+
+    @Test
+    void playbackSpeedChange_notifiesEvenThoughItCannotBeCommanded() {
+        setRawStatus(PlaybackState.PAUSED, 0.0, 1.5);
+
+        clock.advance(1000);
+
+        ArgumentCaptor<PlayerState> statusCaptor =
+                ArgumentCaptor.forClass(PlayerState.class);
+        verify(listener).onStatusChange(statusCaptor.capture());
+        assertEquals(1.5, statusCaptor.getValue().getPlaybackSpeed());
+    }
+
+    @Test
+    void pollingWithoutListener_stillRefreshesStatus() {
+        manager.setListener(null);
+        setRawStatus(PlaybackState.PAUSED, 12.0, 1.0);
+
+        clock.advance(1000);
+
+        assertEquals(12.0, manager.getStatus().getPosition());
+    }
+
+    @Test
+    void getStatus_returnsDefensiveCopy() {
+        PlayerState first = manager.getStatus();
+        first.setPosition(99.0);
+
+        PlayerState second = manager.getStatus();
+
+        assertNotSame(first, second);
+        assertEquals(0.0, second.getPosition());
+    }
+
+    @Test
+    void directCommands_delegateWithoutOptimisticallyChangingStatus() throws Exception {
         manager.play();
+        manager.pause();
+        manager.seek(8.0);
+        manager.load("video.mkv");
 
         verify(videoPlayer).play();
-        assertFalse(manager.isPaused());
+        verify(videoPlayer).pause();
+        verify(videoPlayer).seek(8.0);
+        verify(videoPlayer).load("video.mkv");
+        verify(videoPlayer, never()).close();
+        assertEquals(PlaybackState.PAUSED,
+                manager.getStatus().getPlaybackState());
+        assertEquals(0.0, manager.getStatus().getPosition());
     }
 
     @Test
-    void pause_delegates_and_updatesState() {
-        manager.pause();
+    void updateStatus_issuesOnlyRequiredAvailableCommands() throws Exception {
+        setRawStatus(PlaybackState.PAUSED, 10.0, 1.0);
+        clock.advance(1000);
+        clearInvocations(videoPlayer, listener);
+
+        PlayerState desired = state(PlaybackState.PLAYING, 20.0, 2.0);
+        manager.updateStatus(desired);
+
+        verify(videoPlayer).play();
+        verify(videoPlayer).seek(20.0);
+        verify(videoPlayer, never()).close();
+        assertEquals(PlaybackState.PAUSED,
+                manager.getStatus().getPlaybackState());
+        assertEquals(10.0, manager.getStatus().getPosition());
+    }
+
+    @Test
+    void updateStatus_canPauseWithoutClosingBackingPlayer() throws Exception {
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clock.advance(1000);
+        clearInvocations(videoPlayer, listener);
+
+        PlayerState desired = state(PlaybackState.PAUSED, 0.0, 1.0);
+        manager.updateStatus(desired);
 
         verify(videoPlayer).pause();
-        assertTrue(manager.isPaused());
+        verify(videoPlayer, never()).play();
+        verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
+        verify(videoPlayer, never()).close();
     }
 
     @Test
-    void seek_delegates_and_updatesCache() {
-        double pos = 12.34;
-        manager.seek(pos);
+    void updateStatus_skipsCommandsWhenAlreadyAligned() throws Exception {
+        PlayerState desired = state(PlaybackState.PAUSED, 0.1, 2.0);
+        clearInvocations(videoPlayer);
 
-        verify(videoPlayer).seek(pos);
-        assertEquals(pos, manager.getPosition(), 1e-9);
+        manager.updateStatus(desired);
+
+        verify(videoPlayer, never()).play();
+        verify(videoPlayer, never()).pause();
+        verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
+        verify(videoPlayer, never()).close();
     }
 
     @Test
-    void scheduler_fires_only_after_cooldown() {
-        // initial state: paused
-        when(videoPlayer.isPaused()).thenReturn(false);   // emulate “now playing”
+    void start_replacesPollingTaskAndClosesPreviousPlayer() throws Exception {
+        VideoPlayer replacement = org.mockito.Mockito.mock(VideoPlayer.class);
+        when(replacement.getStatus())
+                .thenReturn(state(PlaybackState.PAUSED, 3.0, 1.0));
 
-        clock.advance(29);   // < UPDATE_COOLDOWN, should NOT call listener
-        verify(listener, never()).onPlay();
+        manager.start(replacement);
 
-        clock.advance(1);    // at 30 ms boundary – should fire
-        verify(listener).onPlay();
-    }
-    /* ------------------------------------------------------------------ *
-     *  NEW tests that cover isSignificantProgressChange()                *
-     * ------------------------------------------------------------------ */
-
-    /**
-     * Branch: timeDiff == 0  → expectedAdvance == 0 → method must return false
-     * (no onSeek forwarded).
-     */
-    @Test
-    void onSeek_whenNoTimeHasPassed_isIgnored() {
-        // 0 ms have elapsed since PlayerManager was started → expectedAdvance = 0.
-        double pos = 0.50;                       // 500 ms jump
-        when(videoPlayer.getPosition()).thenReturn(pos);
-
-        reset(listener);                         // drop any calls made by the scheduler
-        manager.onSeek(pos);
-
-        verify(listener, never()).onSeek(anyDouble());
+        verify(videoPlayer).close();
+        assertEquals(1, clock.activeTaskCount());
+        assertEquals(3.0, manager.getStatus().getPosition());
     }
 
-    /**
-     * Branch: positionDiff ≥ UPDATE_COOLDOWN but
-     *         relativeError ≤ DRIFT_THRESHOLD  → NOT significant.
-     *
-     * Scenario: 100 ms have passed, player advanced exactly 100 ms.
-     */
     @Test
-    void onSeek_whenProgressMatchesTime_isNotSignificant() {
-        clock.advance(100);                      // fake 100 ms of playback
+    void failedPoll_doesNotStopFuturePolls() {
+        when(videoPlayer.getStatus())
+                .thenThrow(new IllegalStateException("temporary failure"))
+                .thenAnswer(invocation ->
+                        state(PlaybackState.PAUSED, 5.0, 1.0));
 
-        double pos = 0.10;                       // 100 ms == expected advance
-        when(videoPlayer.getPosition()).thenReturn(pos);
+        clock.advance(1000);
+        clock.advance(1000);
 
-        reset(listener);
-        manager.onSeek(pos);
-
-        verify(listener, never()).onSeek(anyDouble());   // suppressed
+        assertEquals(5.0, manager.getStatus().getPosition());
     }
 
-    /**
-     * Branch: positionDiff ≥ UPDATE_COOLDOWN AND
-     *         relativeError > DRIFT_THRESHOLD  → significant → listener called.
-     *
-     * Scenario: 100 ms elapsed but position jumped 500 ms.
-     */
     @Test
-    void onSeek_whenJumpLargeEnough_isForwarded() {
-        clock.advance(100);                      // 100 ms out-of-date cache
+    void failedListener_doesNotStopFuturePolls() {
+        doThrow(new IllegalStateException("listener failure"))
+                .doNothing()
+                .when(listener)
+                .onStatusChange(any());
 
-        double pos = 0.50;                       // 500 ms jump → large relative error
-        when(videoPlayer.getPosition()).thenReturn(pos);
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clock.advance(1000);
+        setRawStatus(PlaybackState.PAUSED, 0.0, 1.0);
+        clock.advance(1000);
 
-        reset(listener);
-        manager.onSeek(pos);
+        verify(listener, times(2)).onStatusChange(any());
+        assertEquals(PlaybackState.PAUSED,
+                manager.getStatus().getPlaybackState());
+    }
 
-        verify(listener).onSeek(pos);            // forwarded
+    @Test
+    void commandsBeforeStart_areRejected() throws Exception {
+        manager.close();
+
+        Constructor<PlayerManager> constructor =
+                PlayerManager.class.getDeclaredConstructor(TimingService.class);
+        constructor.setAccessible(true);
+        PlayerManager unstarted = constructor.newInstance(
+                new FakeTimingService()
+        );
+
+        assertThrows(IllegalStateException.class, unstarted::play);
+        unstarted.close();
+    }
+
+    @Test
+    void close_cancelsPollAndClosesBackingPlayer() throws Exception {
+        manager.close();
+
+        assertEquals(0, clock.activeTaskCount());
+        verify(videoPlayer).close();
+    }
+
+    private void setRawStatus(
+            PlaybackState playbackState,
+            double position,
+            double speed
+    ) {
+        rawStatus.set(state(playbackState, position, speed));
+    }
+
+    private static PlayerState state(
+            PlaybackState playbackState,
+            double position,
+            double speed
+    ) {
+        PlayerState status = new PlayerState();
+        status.setPlaybackState(playbackState);
+        status.setPosition(position);
+        status.setPlaybackSpeed(speed);
+        return status;
     }
 }

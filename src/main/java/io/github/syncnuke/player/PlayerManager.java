@@ -7,285 +7,323 @@ import io.github.syncnuke.service.TimingServiceImpl;
 import org.tinylog.Logger;
 import org.tinylog.TaggedLogger;
 
+import java.util.Objects;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Manages a video player instance. Polls the player every {@link #UPDATE_COOLDOWN} milliseconds, ensuring our object representation
- * of the player always matches the current video player state. Handles thread safety. Soaks any updates to the video player
- * that are more frequent than our cooldown, ensuring that communication with our synchronization stack is accurate but done
- * at the requested rate.
+ * Controls a raw {@link VideoPlayer} and maintains the last confirmed player
+ * status observed through polling.
  */
-public class PlayerManager implements VideoPlayer, VideoPlayerEventListener {
+// The backing player is owned here and closed explicitly on replacement/close.
+@SuppressWarnings("resource")
+public final class PlayerManager implements VideoPlayer {
 
     private static final TaggedLogger log = Logger.tag("PlayerManager");
-    private static final int UPDATE_COOLDOWN = 30; // milliseconds
-    private static final double DRIFT_THRESHOLD = 200; // milliseconds, error threshold for drift detection
+    private static final long DEFAULT_POLL_INTERVAL_MILLIS = 1000;
+    private static final double POSITION_DRIFT_TOLERANCE_SECONDS = 0.2;
+    private static final Object INSTANCE_LOCK = new Object();
 
     private static volatile PlayerManager instance;
 
     private final TimingService timingService;
-    private final Object lock;
-    private final PlayerState playerState;
+    private final long pollIntervalMillis;
+    private final Object stateLock = new Object();
+    private final Object lifecycleLock = new Object();
 
+    private PlayerState playerState = new PlayerState();
     private VideoPlayer videoPlayer;
     private VideoPlayerEventListener eventListener;
+    private ScheduledFuture<?> pollingTask;
+    private boolean closed;
 
     private PlayerManager() {
         this(new TimingServiceImpl());
     }
 
     private PlayerManager(TimingService timingService) {
-        this.timingService = timingService;
-        this.lock = new Object();
-        this.playerState = new PlayerState();
+        this(timingService, DEFAULT_POLL_INTERVAL_MILLIS);
+    }
+
+    private PlayerManager(TimingService timingService, long pollIntervalMillis) {
+        this.timingService = Objects.requireNonNull(timingService, "timingService");
+        if (pollIntervalMillis <= 0) {
+            throw new IllegalArgumentException("Poll interval must be greater than zero.");
+        }
+        this.pollIntervalMillis = pollIntervalMillis;
     }
 
     public static PlayerManager getInstance() {
-        if (instance != null) {
+        PlayerManager current = instance;
+        if (current != null) {
+            return current;
+        }
+        synchronized (INSTANCE_LOCK) {
+            if (instance == null) {
+                instance = new PlayerManager();
+            }
             return instance;
         }
-        instance = new PlayerManager();
-        return instance;
     }
 
     public void start(VideoPlayer videoPlayer) {
-        synchronized (lock) {
-            if (this.videoPlayer != null) {
-                try {
-                    this.videoPlayer.close();
-                } catch (Exception e) {
-                    log.error("Error closing previous video player: {}", e.getMessage());
-                }
+        Objects.requireNonNull(videoPlayer, "videoPlayer");
+
+        synchronized (lifecycleLock) {
+            if (closed) {
+                throw new IllegalStateException("Player manager is closed.");
             }
-            this.videoPlayer = videoPlayer;
-            this.videoPlayer.setEventListener(this);
-            updateState();
-            schedule();
+
+            VideoPlayer previousPlayer;
+            synchronized (stateLock) {
+                previousPlayer = this.videoPlayer;
+                this.videoPlayer = null;
+            }
+
+            cancelPollingTask();
+            if (previousPlayer != null && previousPlayer != videoPlayer) {
+                closePreviousPlayer(previousPlayer);
+            }
+
+            PlayerState initialStatus = observe(videoPlayer);
+            synchronized (stateLock) {
+                this.videoPlayer = videoPlayer;
+                this.playerState = initialStatus;
+            }
+
+            pollingTask = timingService.schedule(
+                    this::poll,
+                    pollIntervalMillis,
+                    pollIntervalMillis,
+                    TimeUnit.MILLISECONDS
+            );
         }
     }
 
-    private void schedule() {
-        timingService.schedule(() -> {
-            synchronized (lock) {
-                if (videoPlayer == null) {
-                    throw new IllegalStateException("Video player is not initialized.");
-                }
-                if (eventListener == null) {
-                    log.warn("Event listener not yet set, skipping update.");
-                    return;
-                }
-                // Trigger listener based on video player updates
-                PlaybackState playerPlaybackState = videoPlayer.isPaused() ? PlaybackState.PAUSED : PlaybackState.PLAYING;
-                boolean playbackStateChanged = !playerState.getPlaybackState().equals(playerPlaybackState);
-                if (playbackStateChanged) {
-                    playerState.setPosition(videoPlayer.getPosition());
-                    if (playerPlaybackState.equals(PlaybackState.PAUSED)) {
-                        eventListener.onPause();
-                    } else {
-                        eventListener.onPlay();
-                    }
-                    playerState.setLastUpdateTime(timingService.getCurrentTime());
+    public void setListener(VideoPlayerEventListener eventListener) {
+        synchronized (stateLock) {
+            this.eventListener = eventListener;
+        }
+    }
+
+    /**
+     * Applies the available player commands needed to approach the desired
+     * status. The desired value is not installed as confirmed state; a later
+     * raw observation must confirm the result.
+     */
+    public void updateStatus(PlayerState desiredStatus) {
+        PlayerState desired = copyAndValidate(desiredStatus);
+
+        synchronized (lifecycleLock) {
+            VideoPlayer player = requireVideoPlayer();
+            PlayerState current = getStatus();
+
+            if (current.getPlaybackState() != desired.getPlaybackState()) {
+                if (desired.getPlaybackState() == PlaybackState.PAUSED) {
+                    player.pause();
                 } else {
-                    if (isSignificantProgressChange()) {
-                        eventListener.onSeek(videoPlayer.getPosition());
-                        playerState.setPosition(videoPlayer.getPosition());
-                        playerState.setLastUpdateTime(timingService.getCurrentTime());
-                    }
+                    player.play();
                 }
             }
-        }, UPDATE_COOLDOWN, UPDATE_COOLDOWN, TimeUnit.MILLISECONDS);
-    }
 
-    // Listener wrapper methods
-    @Override
-    public void onPlay() {
-        updateState(eventListener::onPlay);
-    }
-
-    @Override
-    public void onPause() {
-        updateState(eventListener::onPause);
-    }
-
-    @Override
-    public void onSeek(double position) {
-        if (!isSignificantProgressChange()) {
-            return;
-        }
-        updateState(() -> eventListener.onSeek(position));
-    }
-
-    private boolean isSignificantProgressChange() {
-        double currentPosition = videoPlayer.getPosition();
-        long currentTime = timingService.getCurrentTime();
-
-        long timeDiff = currentTime - playerState.getLastUpdateTime();
-
-        double expectedAdvance = timeDiff * playerState.getPlaybackSpeed();
-        if ((long) expectedAdvance == 0) {
-            // Prevent division by zero
-            return false;
-        }
-        double positionDiff = Math.abs(currentPosition - playerState.getPosition()) * 1000; // in milliseconds
-
-        // Progress change does not match expected change based on playback speed, so a seek has occurred
-        return positionDiff > DRIFT_THRESHOLD;
-    }
-
-    private void updateState(Runnable updateTask) {
-        synchronized (lock) {
-            if (videoPlayer == null) {
-                throw new IllegalStateException("Attempted to send update request without a video player initialized.");
-            }
-            if (onCooldown()) {
-                // The player's updating too fast, save state to send on next scheduled update
-                playerState.setPlaybackState(videoPlayer.isPaused() ? PlaybackState.PAUSED : PlaybackState.PLAYING);
-                playerState.setPosition(videoPlayer.getPosition());
-                playerState.setPlaybackSpeed(videoPlayer.getPlaybackSpeed());
-//                updatePlayer();
-//                log.debug("Update skipped due to cooldown. Player state reset to last known state.");
-            } else {
-                // Update the server state
-                updateTask.run();
-                updateState();
-                log.debug("State update sent to server: {}", playerState);
+            long elapsedMillis = Math.max(0, timingService.getCurrentTime() - current.getLastUpdateTime());
+            double expectedPosition = expectedPosition(current, elapsedMillis);
+            double drift = Math.abs(desired.getPosition() - expectedPosition);
+            if (drift > POSITION_DRIFT_TOLERANCE_SECONDS) {
+                player.seek(desired.getPosition());
             }
         }
     }
 
-    private boolean onCooldown() {
-        long currentTime = timingService.getCurrentTime();
-        return currentTime - playerState.getLastUpdateTime() < UPDATE_COOLDOWN;
-    }
-
-    /**
-     * Updates the video player state to match the synchronised state.
-     */
-    private void updatePlayer() {
-        if (videoPlayer == null) {
-            throw new IllegalStateException("Video player is not initialized.");
-        }
-
-        boolean playerPaused = videoPlayer.isPaused();
-        boolean statePaused = playerState.getPlaybackState().equals(PlaybackState.PAUSED);
-
-        // Play status should match the server
-        if (playerPaused != statePaused) {
-            if (statePaused) {
-                videoPlayer.pause();
-            } else {
-                videoPlayer.play();
-            }
-        }
-
-        // Playback progress should match the server
-        if (isSignificantProgressChange()) {
-            if (!statePaused) {
-                long currentTime = timingService.getCurrentTime();
-                long timeDiff = currentTime - playerState.getLastUpdateTime();
-                double expectedAdvance = timeDiff * playerState.getPlaybackSpeed();
-                double newPosition = playerState.getPosition() + expectedAdvance / 1000.0; // Convert milliseconds to seconds
-                playerState.setPosition(newPosition);
-            }
-            videoPlayer.seek(playerState.getPosition());
-            playerState.setLastUpdateTime(timingService.getCurrentTime());
-        }
-
-        // Playback speed should match the server
-        if (videoPlayer.getPlaybackSpeed() != playerState.getPlaybackSpeed()) {
-            videoPlayer.setPlaybackSpeed(playerState.getPlaybackSpeed());
-        }
-    }
-
-    /**
-     * Updates our shared state based on the current video player state.
-     */
-    private void updateState() {
-        PlaybackState videoState = videoPlayer.isPaused() ? PlaybackState.PAUSED : PlaybackState.PLAYING;
-        playerState.setPlaybackState(videoState);
-        playerState.setPosition(videoPlayer.getPosition());
-        playerState.setPlaybackSpeed(videoPlayer.getPlaybackSpeed());
-        playerState.setLastUpdateTime(timingService.getCurrentTime());
-    }
-
-    // Player wrapper methods
     @Override
     public void play() {
-        synchronized (lock) {
-            playerState.setPlaybackState(PlaybackState.PLAYING);
-            videoPlayer.play();
-            playerState.setLastUpdateTime(timingService.getCurrentTime());
+        synchronized (lifecycleLock) {
+            requireVideoPlayer().play();
         }
-        log.debug("Playing video player at position: {}", playerState.getPosition());
     }
 
     @Override
     public void pause() {
-        synchronized (lock) {
-            playerState.setPlaybackState(PlaybackState.PAUSED);
-            videoPlayer.pause();
-            playerState.setLastUpdateTime(timingService.getCurrentTime());
+        synchronized (lifecycleLock) {
+            requireVideoPlayer().pause();
         }
-        log.debug("Paused video player at position: {}", playerState.getPosition());
     }
 
     @Override
     public void seek(double position) {
-        synchronized (lock) {
-            playerState.setPosition(position);
-            videoPlayer.seek(position);
-            playerState.setLastUpdateTime(timingService.getCurrentTime());
+        synchronized (lifecycleLock) {
+            requireVideoPlayer().seek(position);
         }
-        log.debug("Set video player to position: {}", position);
-    }
-
-    @Override
-    public void setPlaybackSpeed(double speed) {
-        synchronized (lock) {
-            if (speed <= 0) {
-                throw new IllegalArgumentException("Playback speed must be greater than zero.");
-            }
-            playerState.setPlaybackSpeed(speed);
-            videoPlayer.setPlaybackSpeed(speed);
-            playerState.setLastUpdateTime(timingService.getCurrentTime());
-        }
-        log.debug("Set video player playback speed to: {}", speed);
-    }
-
-    @Override
-    public double getPosition() {
-        return playerState.getPosition();
-    }
-
-    @Override
-    public double getPlaybackSpeed() {
-        return playerState.getPlaybackSpeed();
-    }
-
-    @Override
-    public boolean isPaused() {
-        return playerState.getPlaybackState().equals(PlaybackState.PAUSED);
     }
 
     @Override
     public void load(String filePath) {
-        videoPlayer.load(filePath);
+        synchronized (lifecycleLock) {
+            requireVideoPlayer().load(filePath);
+        }
     }
 
     @Override
-    public void setEventListener(VideoPlayerEventListener eventListener) {
-        this.eventListener = eventListener;
+    public PlayerState getStatus() {
+        synchronized (stateLock) {
+            return playerState.copy();
+        }
+    }
+
+    private void poll() {
+        try {
+            VideoPlayer player;
+            synchronized (stateLock) {
+                player = videoPlayer;
+            }
+            if (player == null) {
+                return;
+            }
+
+            PlayerState observed = observe(player);
+            VideoPlayerEventListener listener = null;
+            PlayerState eventStatus = null;
+
+            synchronized (stateLock) {
+                if (player != videoPlayer) {
+                    return;
+                }
+
+                PlayerState previous = playerState;
+                long elapsedMillis = Math.max(0, observed.getLastUpdateTime() - previous.getLastUpdateTime());
+                boolean significantChange = hasSignificantChange(
+                        previous,
+                        observed,
+                        elapsedMillis
+                );
+
+                playerState = observed;
+                if (significantChange && eventListener != null) {
+                    listener = eventListener;
+                    eventStatus = observed;
+                }
+            }
+
+            if (listener != null) {
+                try {
+                    listener.onStatusChange(eventStatus);
+                } catch (Throwable error) {
+                    log.error(error, "Video player status listener failed");
+                }
+            }
+        } catch (Throwable error) {
+            log.error(error, "Failed to poll video player status");
+        }
+    }
+
+    private PlayerState observe(VideoPlayer player) {
+        PlayerState observed = copyAndValidate(player.getStatus());
+        observed.setLastUpdateTime(timingService.getCurrentTime());
+        return observed;
+    }
+
+    private PlayerState copyAndValidate(PlayerState status) {
+        PlayerState copy = new PlayerState(
+                Objects.requireNonNull(status, "status")
+        );
+        if (copy.getPlaybackState() == null) {
+            throw new IllegalArgumentException("Playback state must not be null.");
+        }
+        return copy;
+    }
+
+    /**
+     * Filters listener notification only. The observed status is cached whether
+     * this method returns true or false.
+     */
+    private boolean hasSignificantChange(
+            PlayerState previous,
+            PlayerState observed,
+            long elapsedMillis
+    ) {
+        if (previous.getPlaybackState() != observed.getPlaybackState()) {
+            return true;
+        }
+        if (Double.compare(
+                previous.getPlaybackSpeed(),
+                observed.getPlaybackSpeed()
+        ) != 0) {
+            return true;
+        }
+
+        double expectedPosition = expectedPosition(previous, elapsedMillis);
+        return Math.abs(observed.getPosition() - expectedPosition)
+                > POSITION_DRIFT_TOLERANCE_SECONDS;
+    }
+
+    private double expectedPosition(PlayerState status, long elapsedMillis) {
+        if (status.getPlaybackState() != PlaybackState.PLAYING) {
+            return status.getPosition();
+        }
+        double expectedAdvance = elapsedMillis / 1000.0 * status.getPlaybackSpeed();
+        return status.getPosition() + expectedAdvance;
+    }
+
+    private VideoPlayer requireVideoPlayer() {
+        VideoPlayer player;
+        synchronized (stateLock) {
+            player = videoPlayer;
+        }
+        if (player == null) {
+            throw new IllegalStateException("Video player is not initialized.");
+        }
+        return player;
+    }
+
+    private void cancelPollingTask() {
+        if (pollingTask != null) {
+            pollingTask.cancel(false);
+            pollingTask = null;
+        }
+    }
+
+    private void closePreviousPlayer(VideoPlayer player) {
+        try {
+            player.close();
+        } catch (Exception error) {
+            log.error(error, "Error closing previous video player");
+        }
     }
 
     @Override
     public void close() throws Exception {
-        synchronized (lock) {
-            if (videoPlayer != null) {
-                videoPlayer.close();
-                videoPlayer = null;
+        VideoPlayer playerToClose;
+        synchronized (lifecycleLock) {
+            if (closed) {
+                return;
             }
+            closed = true;
+            cancelPollingTask();
+            synchronized (stateLock) {
+                playerToClose = videoPlayer;
+                videoPlayer = null;
+                eventListener = null;
+            }
+        }
+
+        Exception closeFailure = null;
+        try {
+            if (playerToClose != null) {
+                playerToClose.close();
+            }
+        } catch (Exception error) {
+            closeFailure = error;
+        } finally {
             timingService.shutdown();
+            synchronized (INSTANCE_LOCK) {
+                if (instance == this) {
+                    instance = null;
+                }
+            }
+        }
+
+        if (closeFailure != null) {
+            throw closeFailure;
         }
     }
-
 }

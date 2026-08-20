@@ -114,6 +114,18 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
     protected boolean isSignificantChange(int currentStatus, double currentProgress) {
+        return isSignificantChange(
+                currentStatus,
+                currentProgress,
+                player.getStatus().getPlaybackSpeed()
+        );
+    }
+
+    protected boolean isSignificantChange(
+            int currentStatus,
+            double currentProgress,
+            double playbackSpeed
+    ) {
         if (prevStatus == null || prevProgress == null) {
             return true;
         }
@@ -131,12 +143,12 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
         long timeDiff = currentTime - prevProgTime;
 
         boolean paused = currentStatus == PAUSE_STATUS;
-        if (paused || timeDiff <= 0 || player.getPlaybackSpeed() <= 0) {
+        if (paused || timeDiff <= 0 || playbackSpeed <= 0) {
             // Return exclusively based on progress change
             return true;
         }
 
-        double expectedAdvance = timeDiff * player.getPlaybackSpeed();
+        double expectedAdvance = timeDiff * playbackSpeed;
         if ((long) expectedAdvance == 0) {
             // Prevent division by zero
             return false;
