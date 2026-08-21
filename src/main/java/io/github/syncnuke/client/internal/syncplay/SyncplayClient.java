@@ -44,15 +44,21 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
     }
 
     public SyncplayClient(DataProcessor dataProcessor, String host, int port, PlayerManager videoPlayer) {
-        super(1000, videoPlayer);
-        this.netClient = new TcpClient<>();
+        this(dataProcessor, host, port, videoPlayer, new TcpClient<>(), new TimingServiceImpl(), new TimingServiceImpl()
+        );
+    }
+
+    SyncplayClient(DataProcessor dataProcessor, String host, int port, PlayerManager videoPlayer,
+                   NetClient<SyncplayMessage> netClient, TimingService keepAliveTimingService, TimingService timingService) {
+        super(1000, videoPlayer, keepAliveTimingService);
+        this.netClient = netClient;
         connect(host, port, new ProtoJsonCodec());
         this.dataProcessor = dataProcessor;
         state = StateMessage.newBuilder().setPlaystate(PlayState.newBuilder()
                 .setPaused(true)
                 .setDoSeek(false))
         ;
-        timingService = new TimingServiceImpl();
+        this.timingService = timingService;
     }
 
     @Override

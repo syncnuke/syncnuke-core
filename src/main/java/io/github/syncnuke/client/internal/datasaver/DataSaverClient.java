@@ -10,28 +10,38 @@ import io.github.syncnuke.client.internal.net.TcpClient;
 import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
+import io.github.syncnuke.service.TimingService;
+import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
 public class DataSaverClient extends SyncClient<BaseData> {
 
-    private final NetClient<BaseData> netClient;
+    private static final int DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS = 10000;
 
-    private final AtomicBoolean ignoreUpdates = new AtomicBoolean(false);
+    private final NetClient<BaseData> netClient;
     private final int debounceDelay; // in milliseconds
 
     public DataSaverClient(String host, int port, int debounceDelay, PlayerManager videoPlayer) {
-        super(10000, videoPlayer);
-        this.netClient = new TcpClient<>();
-        connect(host, port, new BaseCodec());
-        this.debounceDelay = debounceDelay;
+        this(host, port, debounceDelay, DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS, videoPlayer);
+    }
+
+    public DataSaverClient(String host, int port, int debounceDelay, int keepAliveInterval, PlayerManager videoPlayer) {
+        this(host, port, debounceDelay, keepAliveInterval, videoPlayer, new TcpClient<>(), new TimingServiceImpl());
     }
 
     public DataSaverClient(String host, int port, PlayerManager videoPlayer) {
         this(host, port, 0, videoPlayer);
+    }
+
+    DataSaverClient(String host, int port, int debounceDelay, int keepAliveInterval, PlayerManager videoPlayer,
+                    NetClient<BaseData> netClient, TimingService timingService) {
+        super(keepAliveInterval, videoPlayer, timingService);
+        this.netClient = Objects.requireNonNull(netClient, "netClient");
+        this.debounceDelay = debounceDelay;
+        connect(host, port, new BaseCodec());
     }
 
     @Override
@@ -47,11 +57,9 @@ public class DataSaverClient extends SyncClient<BaseData> {
     @Override
     protected void handleResponse(BaseData data) {
         try {
-            if (!ignoreUpdates.get()) {
-                Command command = Objects.requireNonNull(data.getCommand());
-                if (command == Command.UPDATE_STATE) {
-                    handleStateUpdate(data);
-                }
+            Command command = Objects.requireNonNull(data.getCommand());
+            if (command == Command.UPDATE_STATE) {
+                handleStateUpdate(data);
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
@@ -74,7 +82,9 @@ public class DataSaverClient extends SyncClient<BaseData> {
     @Override
     public void onStatusChange(PlayerState status) {
         log.debug("Player status event detected: {}", status);
-        sendState(status);
+        if (isSignificantChange(status)) {
+            sendState(status);
+        }
     }
 
     @Override
@@ -87,10 +97,6 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     private void sendState(PlayerState status) {
-        if (!isSignificantChange(status)) {
-            return;
-        }
-
         try {
             State state = getState(status);
             BaseData message = new BaseData(
@@ -99,14 +105,11 @@ public class DataSaverClient extends SyncClient<BaseData> {
                     status.getPosition()
             );
 
-            ignoreUpdates.set(true);
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             send(message);
             Thread.sleep(debounceDelay);
         } catch (InterruptedException e) {
             log.error("Failed to send state: {}", e.getMessage());
-        } finally {
-            ignoreUpdates.set(false);
         }
     }
 

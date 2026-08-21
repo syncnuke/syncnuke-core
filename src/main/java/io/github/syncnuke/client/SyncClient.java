@@ -77,7 +77,7 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
         keepAliveTask = timingService.schedule(() -> {
             try {
                 long timeSinceLastMessage = getCurrentTime() - lastMessageSentTime.get();
-                if (timeSinceLastMessage > keepAliveInterval) {
+                if (timeSinceLastMessage >= keepAliveInterval) {
                     log.debug("Sending keepAlive to maintain connection");
                     sendKeepAlive();
                 }
