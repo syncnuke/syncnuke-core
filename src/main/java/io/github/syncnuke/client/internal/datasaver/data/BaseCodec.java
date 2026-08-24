@@ -10,6 +10,7 @@ import java.nio.ByteOrder;
 public class BaseCodec implements Codec<BaseData> {
 
     private static final short DOUBLE_BYTES = 8; // Double.BYTES
+    private static final short MESSAGE_BYTES = 2 + DOUBLE_BYTES;
 
     @Override
     public byte[] encode(BaseData value) {
@@ -17,7 +18,7 @@ public class BaseCodec implements Codec<BaseData> {
             return new byte[0];
         }
 
-        byte[] bytes = new byte[2 + DOUBLE_BYTES];
+        byte[] bytes = new byte[MESSAGE_BYTES];
         bytes[0] = value.getCommand().getCode();
         bytes[1] = value.getState().getCode();
         insertDouble(bytes, 2, value.getPosition());
@@ -27,10 +28,14 @@ public class BaseCodec implements Codec<BaseData> {
 
     @Override
     public BaseData decode(InputStream in) throws IOException {
-        byte[] bytes = new byte[3 + DOUBLE_BYTES];
-        int bytesRead = in.read(bytes);
-        if (bytesRead == -1) {
-            throw new IOException("End of stream reached");
+        byte[] bytes = new byte[MESSAGE_BYTES];
+        int offset = 0;
+        while (offset < bytes.length) {
+            int bytesRead = in.read(bytes, offset, bytes.length - offset);
+            if (bytesRead == -1) {
+                throw new IOException("End of stream reached");
+            }
+            offset += bytesRead;
         }
 
         Command command = Command.fromCode(bytes[0]);
