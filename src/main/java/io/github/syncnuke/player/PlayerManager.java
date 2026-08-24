@@ -31,6 +31,9 @@ public final class PlayerManager implements VideoPlayer {
     private final Object stateLock = new Object();
     private final Object lifecycleLock = new Object();
 
+    /**
+     * Used only for polling and detecting significant changes. Not used directly for getStatus()
+     */
     private PlayerState playerState = new PlayerState();
     private VideoPlayer videoPlayer;
     private VideoPlayerEventListener eventListener;
@@ -116,7 +119,10 @@ public final class PlayerManager implements VideoPlayer {
 
         synchronized (lifecycleLock) {
             VideoPlayer player = requireVideoPlayer();
-            PlayerState current = getStatus();
+            PlayerState current;
+            synchronized (stateLock) {
+                current = playerState.copy();
+            }
 
             if (current.getPlaybackState() != desired.getPlaybackState()) {
                 if (desired.getPlaybackState() == PlaybackState.PAUSED) {
@@ -165,8 +171,8 @@ public final class PlayerManager implements VideoPlayer {
 
     @Override
     public PlayerState getStatus() {
-        synchronized (stateLock) {
-            return playerState.copy();
+        synchronized (lifecycleLock) {
+            return observe(requireVideoPlayer());
         }
     }
 

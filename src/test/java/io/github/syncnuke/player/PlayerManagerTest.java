@@ -191,7 +191,7 @@ class PlayerManagerTest {
 
         assertEquals(PlaybackState.PAUSED, status.getPlaybackState());
         assertEquals(0.0, status.getPosition());
-        verify(videoPlayer, times(1)).getStatus();
+        verify(videoPlayer, times(2)).getStatus();
         verify(listener, never()).onStatusChange(any());
     }
 
@@ -277,6 +277,16 @@ class PlayerManagerTest {
     }
 
     @Test
+    void getStatus_readsCurrentBackingPlayerStatusWithoutWaitingForPoll() {
+        setRawStatus(PlaybackState.PLAYING, 12.0, 1.0);
+
+        PlayerState status = manager.getStatus();
+
+        assertEquals(PlaybackState.PLAYING, status.getPlaybackState());
+        assertEquals(12.0, status.getPosition());
+    }
+
+    @Test
     void directCommands_delegateWithoutOptimisticallyChangingStatus() throws Exception {
         manager.play();
         manager.pause();
@@ -302,6 +312,7 @@ class PlayerManagerTest {
         PlayerState desired = state(PlaybackState.PLAYING, 20.0, 2.0);
         manager.updateStatus(desired);
 
+        verify(videoPlayer, never()).getStatus();
         verify(videoPlayer).play();
         verify(videoPlayer).seek(20.0);
         verify(videoPlayer, never()).close();
