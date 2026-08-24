@@ -185,11 +185,6 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
         } catch (Exception e) {
             log.warn("Failed to close network client: {}", e.getMessage());
         }
-        try {
-            player.close();
-        } catch (Exception e) {
-            log.warn("Failed to close video player: {}", e.getMessage());
-        }
     }
 
 }
