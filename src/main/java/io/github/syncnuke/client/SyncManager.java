@@ -13,8 +13,9 @@ import java.util.concurrent.Executors;
  * Wrapper class for SyncClient instances, handling instantiation and thread safety.
  */
 @Slf4j
-public class SyncManager implements VideoPlayerEventListener {
+public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
 
+    private static final Object INSTANCE_LOCK = new Object();
     private static volatile SyncManager instance;
 
     // Thread management variables
@@ -94,6 +95,24 @@ public class SyncManager implements VideoPlayerEventListener {
                 toClose.close();
             } catch (Exception e) {
                 log.error("Error while disconnecting SyncClient: {}", e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Stops any active sync session and shuts down the internal executor.
+     * <p>
+     * Without this, {@link #syncExecutor} (a non-daemon thread pool) would
+     * keep the JVM alive indefinitely after the rest of the application has
+     * shut down, since nothing else ever terminates it.
+     */
+    @Override
+    public void close() {
+        stop();
+        syncExecutor.shutdownNow();
+        synchronized (INSTANCE_LOCK) {
+            if (instance == this) {
+                instance = null;
             }
         }
     }
