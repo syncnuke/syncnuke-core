@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 public final class PlayerManager implements VideoPlayer {
 
     private static final TaggedLogger log = Logger.tag("PlayerManager");
-    private static final long DEFAULT_POLL_INTERVAL_MILLIS = 1000;
+    private static final long DEFAULT_POLL_INTERVAL_MILLIS = 50;
     private static final double POSITION_DRIFT_TOLERANCE_SECONDS = 0.2;
     private static final Object INSTANCE_LOCK = new Object();
 
