@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay.data.builder;
+package io.github.syncnuke.client.internal.protocol.syncplay.data.builder;
 
 import pl.syncplay.proto.SyncplayProto.Features;
 import pl.syncplay.proto.SyncplayProto.HelloMessage;

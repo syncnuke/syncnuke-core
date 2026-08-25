@@ -1,7 +1,7 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.client.internal.datasaver.DataSaverClient;
-import io.github.syncnuke.client.internal.syncplay.SyncplayClient;
+import io.github.syncnuke.client.internal.protocol.datasaver.DataSaverClient;
+import io.github.syncnuke.client.internal.protocol.syncplay.SyncplayClient;
 import io.github.syncnuke.player.PlayerManager;
 
 /**

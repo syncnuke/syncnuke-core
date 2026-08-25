@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay.data;
+package io.github.syncnuke.client.internal.protocol.syncplay.data;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
-import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.net.Codec;
 import pl.syncplay.proto.SyncplayProto.SyncplayMessage;
 

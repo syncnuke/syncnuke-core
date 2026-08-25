@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay.data.exception;
+package io.github.syncnuke.client.internal.protocol.syncplay.data.exception;
 
 public class SerializationException extends RuntimeException {
 

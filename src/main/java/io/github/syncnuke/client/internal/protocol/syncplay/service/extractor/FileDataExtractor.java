@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay.service.extractor;
+package io.github.syncnuke.client.internal.protocol.syncplay.service.extractor;
 
 import pl.syncplay.proto.SyncplayProto.FileInfo;
 import pl.syncplay.proto.SyncplayProto.SetCommand;

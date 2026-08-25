@@ -1,8 +1,8 @@
-package io.github.syncnuke.client.internal.datasaver;
+package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.internal.datasaver.data.BaseData;
-import io.github.syncnuke.client.internal.datasaver.data.Command;
-import io.github.syncnuke.client.internal.datasaver.data.State;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;

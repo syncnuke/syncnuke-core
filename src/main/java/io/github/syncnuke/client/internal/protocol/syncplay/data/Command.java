@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay.data;
+package io.github.syncnuke.client.internal.protocol.syncplay.data;
 
 import com.google.protobuf.Message;
 import lombok.Getter;

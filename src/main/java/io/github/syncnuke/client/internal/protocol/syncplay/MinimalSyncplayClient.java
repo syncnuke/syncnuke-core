@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.syncplay;
+package io.github.syncnuke.client.internal.protocol.syncplay;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

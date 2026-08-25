@@ -1,8 +1,8 @@
-package io.github.syncnuke.client.internal.syncplay.service;
+package io.github.syncnuke.client.internal.protocol.syncplay.service;
 
 import com.google.protobuf.Message;
-import io.github.syncnuke.client.internal.syncplay.data.Command;
-import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.Command;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.CommandMessage;
 import lombok.extern.slf4j.Slf4j;
 import pl.syncplay.proto.SyncplayProto;
 

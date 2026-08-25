@@ -1,4 +1,4 @@
-package io.github.syncnuke.client.internal.datasaver.data;
+package io.github.syncnuke.client.internal.protocol.datasaver.data;
 
 import org.junit.jupiter.api.Test;
 

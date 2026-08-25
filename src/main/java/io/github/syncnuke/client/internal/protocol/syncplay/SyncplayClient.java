@@ -1,15 +1,15 @@
-package io.github.syncnuke.client.internal.syncplay;
+package io.github.syncnuke.client.internal.protocol.syncplay;
 
 import com.google.protobuf.Message;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.TcpClient;
-import io.github.syncnuke.client.internal.syncplay.data.CommandMessage;
-import io.github.syncnuke.client.internal.syncplay.data.ProtoJsonCodec;
-import io.github.syncnuke.client.internal.syncplay.data.builder.HelloMessageBuilder;
-import io.github.syncnuke.client.internal.syncplay.data.exception.SerializationException;
-import io.github.syncnuke.client.internal.syncplay.service.DataProcessor;
-import io.github.syncnuke.client.internal.syncplay.service.extractor.FileDataExtractor;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.CommandMessage;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.ProtoJsonCodec;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.builder.HelloMessageBuilder;
+import io.github.syncnuke.client.internal.protocol.syncplay.data.exception.SerializationException;
+import io.github.syncnuke.client.internal.protocol.syncplay.service.DataProcessor;
+import io.github.syncnuke.client.internal.protocol.syncplay.service.extractor.FileDataExtractor;
 import io.github.syncnuke.player.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
