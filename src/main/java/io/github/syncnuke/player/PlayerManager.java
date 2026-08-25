@@ -123,8 +123,12 @@ public final class PlayerManager implements VideoPlayer {
         synchronized (lifecycleLock) {
             VideoPlayer player = requireVideoPlayer();
             PlayerState current;
-            synchronized (stateLock) {
-                current = playerState.copy();
+            if (pollIntervalMillis == 0) {
+                current = observe(player);
+            } else {
+                synchronized (stateLock) {
+                    current = playerState.copy();
+                }
             }
 
             if (current.getPlaybackState() != desired.getPlaybackState()) {

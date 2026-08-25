@@ -196,8 +196,8 @@ class PlayerManagerTest {
     }
 
     @Test
-    void polling_startsAtExactlyOneSecond() {
-        clock.advance(999);
+    void polling_startsAtDefaultInterval() {
+        clock.advance(49);
         verify(videoPlayer, times(1)).getStatus();
 
         clock.advance(1);
@@ -207,14 +207,14 @@ class PlayerManagerTest {
     @Test
     void ordinaryPlayingProgress_refreshesWithoutNotification() {
         setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
-        clock.advance(1000);
+        clock.advance(50);
         clearInvocations(listener);
 
-        setRawStatus(PlaybackState.PLAYING, 1.0, 1.0);
-        clock.advance(1000);
+        setRawStatus(PlaybackState.PLAYING, 0.05, 1.0);
+        clock.advance(50);
 
         verify(listener, never()).onStatusChange(any());
-        assertEquals(1.0, manager.getStatus().getPosition());
+        assertEquals(0.05, manager.getStatus().getPosition());
     }
 
     @Test
@@ -334,6 +334,26 @@ class PlayerManagerTest {
         verify(videoPlayer, never()).play();
         verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
         verify(videoPlayer, never()).close();
+    }
+
+    @Test
+    void updateStatus_observesBackingPlayerWhenPollingIsDisabled() throws Exception {
+        manager.close();
+        Constructor<PlayerManager> constructor = PlayerManager.class
+                .getDeclaredConstructor(TimingService.class, long.class);
+        constructor.setAccessible(true);
+        manager = constructor.newInstance(clock, 0L);
+        manager.start(videoPlayer);
+
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clearInvocations(videoPlayer);
+
+        PlayerState desired = state(PlaybackState.PAUSED, 0.0, 1.0);
+        manager.updateStatus(desired);
+
+        verify(videoPlayer).getStatus();
+        verify(videoPlayer).pause();
+        verify(videoPlayer, never()).play();
     }
 
     @Test
