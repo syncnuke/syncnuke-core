@@ -54,13 +54,17 @@ public final class PlayerManager implements VideoPlayer {
     }
 
     public static PlayerManager getInstance() {
+        return getInstance(DEFAULT_POLL_INTERVAL_MILLIS);
+    }
+
+    public static PlayerManager getInstance(long pollIntervalMillis) {
         PlayerManager current = instance;
         if (current != null) {
             return current;
         }
         synchronized (INSTANCE_LOCK) {
             if (instance == null) {
-                instance = new PlayerManager();
+                instance = new PlayerManager(new TimingServiceImpl(), pollIntervalMillis);
             }
             return instance;
         }
