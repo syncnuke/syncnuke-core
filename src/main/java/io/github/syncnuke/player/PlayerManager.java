@@ -50,10 +50,7 @@ public final class PlayerManager implements VideoPlayer {
 
     private PlayerManager(TimingService timingService, long pollIntervalMillis) {
         this.timingService = Objects.requireNonNull(timingService, "timingService");
-        if (pollIntervalMillis <= 0) {
-            throw new IllegalArgumentException("Poll interval must be greater than zero.");
-        }
-        this.pollIntervalMillis = pollIntervalMillis;
+        this.pollIntervalMillis = pollIntervalMillis <= 0 ? 0 : pollIntervalMillis;
     }
 
     public static PlayerManager getInstance() {
@@ -94,12 +91,14 @@ public final class PlayerManager implements VideoPlayer {
                 this.playerState = initialStatus;
             }
 
-            pollingTask = timingService.schedule(
-                    this::poll,
-                    pollIntervalMillis,
-                    pollIntervalMillis,
-                    TimeUnit.MILLISECONDS
-            );
+            if (pollIntervalMillis > 0) {
+                pollingTask = timingService.schedule(
+                        this::poll,
+                        pollIntervalMillis,
+                        pollIntervalMillis,
+                        TimeUnit.MILLISECONDS
+                );
+            }
         }
     }
 
