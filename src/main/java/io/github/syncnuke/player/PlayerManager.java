@@ -34,7 +34,7 @@ public final class PlayerManager implements VideoPlayer {
     /**
      * Used only for polling and detecting significant changes. Not used directly for getStatus()
      */
-    private PlayerState playerState = new PlayerState();
+    private PlayerState lastPlayerState = new PlayerState();
     private VideoPlayer videoPlayer;
     private VideoPlayerEventListener eventListener;
     private ScheduledFuture<?> pollingTask;
@@ -92,7 +92,7 @@ public final class PlayerManager implements VideoPlayer {
             PlayerState initialStatus = observe(videoPlayer);
             synchronized (stateLock) {
                 this.videoPlayer = videoPlayer;
-                this.playerState = initialStatus;
+                this.lastPlayerState = initialStatus;
             }
 
             if (pollIntervalMillis > 0) {
@@ -195,7 +195,7 @@ public final class PlayerManager implements VideoPlayer {
                     return;
                 }
 
-                PlayerState previous = playerState;
+                PlayerState previous = lastPlayerState;
                 long elapsedMillis = Math.max(0, observed.getLastUpdateTime() - previous.getLastUpdateTime());
                 boolean significantChange = hasSignificantChange(
                         previous,
@@ -203,7 +203,7 @@ public final class PlayerManager implements VideoPlayer {
                         elapsedMillis
                 );
 
-                playerState = observed;
+                lastPlayerState = observed;
                 if (significantChange && eventListener != null) {
                     listener = eventListener;
                     eventStatus = observed;
