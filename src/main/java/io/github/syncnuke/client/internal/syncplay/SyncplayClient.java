@@ -259,7 +259,9 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
             // {"Set": {"ready": {"username": "testme", "isReady": true, "manuallyInitiated": false}}}
             // TODO: Remove this and find a better way to handle playback start
             if (setData.hasReady()) {
-                getPlayer().play();
+                PlayerState desiredStatus = getPlayer().getStatus();
+                desiredStatus.setPlaybackState(PlaybackState.PLAYING);
+                getPlayer().updateStatus(desiredStatus);
                 PlayerState status = getPlayer().getStatus();
                 state.getPlaystateBuilder().setPaused(
                         status.getPlaybackState() == PlaybackState.PAUSED

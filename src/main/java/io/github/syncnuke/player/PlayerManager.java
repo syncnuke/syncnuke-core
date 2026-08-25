@@ -12,12 +12,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Controls a raw {@link VideoPlayer} and maintains the last confirmed player
+ * Coordinates a {@link VideoPlayer} and maintains the last confirmed player
  * status observed through polling.
  */
-// The backing player is owned here and closed explicitly on replacement/close.
-@SuppressWarnings("resource")
-public final class PlayerManager implements VideoPlayer {
+public final class PlayerManager implements AutoCloseable {
 
     private static final TaggedLogger log = Logger.tag("PlayerManager");
     private static final long DEFAULT_POLL_INTERVAL_MILLIS = 250;
@@ -39,14 +37,6 @@ public final class PlayerManager implements VideoPlayer {
     private VideoPlayerEventListener eventListener;
     private ScheduledFuture<?> pollingTask;
     private boolean closed;
-
-    private PlayerManager() {
-        this(new TimingServiceImpl());
-    }
-
-    private PlayerManager(TimingService timingService) {
-        this(timingService, DEFAULT_POLL_INTERVAL_MILLIS);
-    }
 
     private PlayerManager(TimingService timingService, long pollIntervalMillis) {
         this.timingService = Objects.requireNonNull(timingService, "timingService");
@@ -141,35 +131,6 @@ public final class PlayerManager implements VideoPlayer {
         }
     }
 
-    @Override
-    public void play() {
-        synchronized (lifecycleLock) {
-            requireVideoPlayer().play();
-        }
-    }
-
-    @Override
-    public void pause() {
-        synchronized (lifecycleLock) {
-            requireVideoPlayer().pause();
-        }
-    }
-
-    @Override
-    public void seek(double position) {
-        synchronized (lifecycleLock) {
-            requireVideoPlayer().seek(position);
-        }
-    }
-
-    @Override
-    public void load(String filePath) {
-        synchronized (lifecycleLock) {
-            requireVideoPlayer().load(filePath);
-        }
-    }
-
-    @Override
     public PlayerState getStatus() {
         synchronized (lifecycleLock) {
             return observe(requireVideoPlayer());

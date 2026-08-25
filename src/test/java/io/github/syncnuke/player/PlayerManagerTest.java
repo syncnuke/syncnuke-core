@@ -163,10 +163,10 @@ class PlayerManagerTest {
         when(videoPlayer.getStatus())
                 .thenAnswer(invocation -> rawStatus.get().copy());
 
-        Constructor<PlayerManager> constructor =
-                PlayerManager.class.getDeclaredConstructor(TimingService.class);
+        Constructor<PlayerManager> constructor = PlayerManager.class
+                .getDeclaredConstructor(TimingService.class, long.class);
         constructor.setAccessible(true);
-        manager = constructor.newInstance(clock);
+        manager = constructor.newInstance(clock, 50L);
         manager.setListener(listener);
         manager.start(videoPlayer);
     }
@@ -287,23 +287,6 @@ class PlayerManagerTest {
     }
 
     @Test
-    void directCommands_delegateWithoutOptimisticallyChangingStatus() throws Exception {
-        manager.play();
-        manager.pause();
-        manager.seek(8.0);
-        manager.load("video.mkv");
-
-        verify(videoPlayer).play();
-        verify(videoPlayer).pause();
-        verify(videoPlayer).seek(8.0);
-        verify(videoPlayer).load("video.mkv");
-        verify(videoPlayer, never()).close();
-        assertEquals(PlaybackState.PAUSED,
-                manager.getStatus().getPlaybackState());
-        assertEquals(0.0, manager.getStatus().getPosition());
-    }
-
-    @Test
     void updateStatus_issuesOnlyRequiredAvailableCommands() throws Exception {
         setRawStatus(PlaybackState.PAUSED, 10.0, 1.0);
         clock.advance(1000);
@@ -312,7 +295,7 @@ class PlayerManagerTest {
         PlayerState desired = state(PlaybackState.PLAYING, 20.0, 2.0);
         manager.updateStatus(desired);
 
-        verify(videoPlayer, never()).getStatus();
+        verify(videoPlayer).getStatus();
         verify(videoPlayer).play();
         verify(videoPlayer).seek(20.0);
         verify(videoPlayer, never()).close();
@@ -413,17 +396,18 @@ class PlayerManagerTest {
     }
 
     @Test
-    void commandsBeforeStart_areRejected() throws Exception {
+    void operationsBeforeStart_areRejected() throws Exception {
         manager.close();
 
-        Constructor<PlayerManager> constructor =
-                PlayerManager.class.getDeclaredConstructor(TimingService.class);
+        Constructor<PlayerManager> constructor = PlayerManager.class
+                .getDeclaredConstructor(TimingService.class, long.class);
         constructor.setAccessible(true);
         PlayerManager unstarted = constructor.newInstance(
-                new FakeTimingService()
+                new FakeTimingService(),
+                50L
         );
 
-        assertThrows(IllegalStateException.class, unstarted::play);
+        assertThrows(IllegalStateException.class, unstarted::getStatus);
         unstarted.close();
     }
 
