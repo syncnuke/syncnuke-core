@@ -12,5 +12,6 @@ public class BaseData {
     private Command command;
     private State state;
     private double position;
+    private double playbackSpeed;
 
 }

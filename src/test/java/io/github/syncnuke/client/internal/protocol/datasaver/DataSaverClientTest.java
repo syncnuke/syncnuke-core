@@ -91,7 +91,8 @@ class DataSaverClientTest {
         BaseData inbound = new BaseData(
                 Command.UPDATE_STATE,
                 State.PLAYING,
-                15.0
+                15.0,
+                1.25
         );
         doAnswer(invocation -> {
             client.handleResponse(inbound);
@@ -110,6 +111,7 @@ class DataSaverClientTest {
                 targetCaptor.getValue().getPlaybackState()
         );
         assertEquals(15.0, targetCaptor.getValue().getPosition());
+        assertEquals(1.25, targetCaptor.getValue().getPlaybackSpeed());
     }
 
     @Test
@@ -121,7 +123,8 @@ class DataSaverClientTest {
         client.handleResponse(new BaseData(
                 Command.UPDATE_STATE,
                 State.PLAYING,
-                9.0
+                9.0,
+                2.0
         ));
 
         ArgumentCaptor<PlayerState> targetCaptor =
@@ -130,7 +133,7 @@ class DataSaverClientTest {
         PlayerState target = targetCaptor.getValue();
         assertEquals(PlaybackState.PLAYING, target.getPlaybackState());
         assertEquals(9.0, target.getPosition());
-        assertEquals(1.5, target.getPlaybackSpeed());
+        assertEquals(2.0, target.getPlaybackSpeed());
         assertEquals(123, target.getLastUpdateTime());
     }
 
@@ -141,7 +144,8 @@ class DataSaverClientTest {
         client.handleResponse(new BaseData(
                 Command.UPDATE_STATE,
                 State.PAUSED,
-                10.0
+                10.0,
+                1.0
         ));
         clearInvocations(netClient);
 
@@ -157,7 +161,8 @@ class DataSaverClientTest {
         client.handleResponse(new BaseData(
                 Command.UPDATE_STATE,
                 State.PAUSED,
-                10.0
+                10.0,
+                1.0
         ));
         client.sendKeepAlive();
         clearInvocations(netClient);
@@ -171,6 +176,7 @@ class DataSaverClientTest {
         assertEquals(Command.UPDATE_STATE, messageCaptor.getValue().getCommand());
         assertEquals(State.PAUSED, messageCaptor.getValue().getState());
         assertEquals(10.0, messageCaptor.getValue().getPosition());
+        assertEquals(1.0, messageCaptor.getValue().getPlaybackSpeed());
     }
 
     @Test

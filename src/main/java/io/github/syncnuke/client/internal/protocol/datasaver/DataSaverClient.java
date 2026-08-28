@@ -74,6 +74,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
                         : PlaybackState.PLAYING
         );
         serverStatus.setPosition(data.getPosition());
+        serverStatus.setPlaybackSpeed(data.getPlaybackSpeed());
 
         updateServerState(serverStatus);
         getPlayer().updateStatus(serverStatus);
@@ -102,7 +103,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
             BaseData message = new BaseData(
                     Command.UPDATE_STATE,
                     state,
-                    status.getPosition()
+                    status.getPosition(),
+                    status.getPlaybackSpeed()
             );
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());

@@ -10,7 +10,7 @@ import java.nio.ByteOrder;
 public class BaseCodec implements Codec<BaseData> {
 
     private static final short DOUBLE_BYTES = 8; // Double.BYTES
-    private static final short MESSAGE_BYTES = 2 + DOUBLE_BYTES;
+    private static final short MESSAGE_BYTES = 2 + 2 * DOUBLE_BYTES;
 
     @Override
     public byte[] encode(BaseData value) {
@@ -22,6 +22,7 @@ public class BaseCodec implements Codec<BaseData> {
         bytes[0] = value.getCommand().getCode();
         bytes[1] = value.getState().getCode();
         insertDouble(bytes, 2, value.getPosition());
+        insertDouble(bytes, 2 + DOUBLE_BYTES, value.getPlaybackSpeed());
 
         return bytes;
     }
@@ -41,8 +42,9 @@ public class BaseCodec implements Codec<BaseData> {
         Command command = Command.fromCode(bytes[0]);
         State state = State.fromCode(bytes[1]);
         double position = extractDouble(bytes, 2);
+        double playbackSpeed = extractDouble(bytes, 2 + DOUBLE_BYTES);
 
-        return new BaseData(command, state, position);
+        return new BaseData(command, state, position, playbackSpeed);
     }
 
     @SuppressWarnings("SameParameterValue")

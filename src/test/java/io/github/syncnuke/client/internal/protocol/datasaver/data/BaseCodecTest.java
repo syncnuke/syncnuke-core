@@ -15,8 +15,8 @@ class BaseCodecTest {
 
     @Test
     void decodesConsecutiveMessagesWithoutConsumingTheNextFrame() throws IOException {
-        BaseData first = new BaseData(Command.UPDATE_STATE, State.PLAYING, 12.5);
-        BaseData second = new BaseData(Command.UPDATE_STATE, State.PAUSED, 42.25);
+        BaseData first = new BaseData(Command.UPDATE_STATE, State.PLAYING, 12.5, 1.5);
+        BaseData second = new BaseData(Command.UPDATE_STATE, State.PAUSED, 42.25, 0.75);
         byte[] input = concatenate(codec.encode(first), codec.encode(second));
         InputStream stream = new ByteArrayInputStream(input);
 
@@ -26,7 +26,7 @@ class BaseCodecTest {
 
     @Test
     void waitsForACompleteMessageWhenTcpReadIsFragmented() throws IOException {
-        BaseData expected = new BaseData(Command.UPDATE_STATE, State.PLAYING, 7.75);
+        BaseData expected = new BaseData(Command.UPDATE_STATE, State.PLAYING, 7.75, 2.0);
         InputStream stream = new FilterInputStream(
                 new ByteArrayInputStream(codec.encode(expected))
         ) {
