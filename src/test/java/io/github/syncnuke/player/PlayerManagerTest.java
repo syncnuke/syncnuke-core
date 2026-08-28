@@ -161,7 +161,11 @@ class PlayerManagerTest {
         clock = new FakeTimingService();
         rawStatus = new AtomicReference<>(state(PlaybackState.PAUSED, 0.0, 1.0));
         when(videoPlayer.getStatus())
-                .thenAnswer(invocation -> rawStatus.get().copy());
+                .thenAnswer(invocation -> {
+                    PlayerState status = rawStatus.get().copy();
+                    status.setLastUpdateTime(clock.getCurrentTime());
+                    return status;
+                });
 
         Constructor<PlayerManager> constructor = PlayerManager.class
                 .getDeclaredConstructor(TimingService.class, long.class);

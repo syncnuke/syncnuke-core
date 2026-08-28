@@ -184,9 +184,7 @@ public final class PlayerManager implements AutoCloseable {
     }
 
     private PlayerState observe(VideoPlayer player) {
-        PlayerState observed = copyAndValidate(player.getStatus());
-        observed.setLastUpdateTime(timingService.getCurrentTime());
-        return observed;
+        return copyAndValidate(player.getStatus());
     }
 
     private PlayerState copyAndValidate(PlayerState status) {
@@ -195,6 +193,15 @@ public final class PlayerManager implements AutoCloseable {
         );
         if (copy.getPlaybackState() == null) {
             throw new IllegalArgumentException("Playback state must not be null.");
+        }
+        if (!Double.isFinite(copy.getPosition()) || copy.getPosition() < 0) {
+            throw new IllegalArgumentException("Position must be a non-negative finite number.");
+        }
+        if (!Double.isFinite(copy.getPlaybackSpeed()) || copy.getPlaybackSpeed() <= 0) {
+            throw new IllegalArgumentException("Playback speed must be a positive finite number.");
+        }
+        if (copy.getLastUpdateTime() < 0) {
+            throw new IllegalArgumentException("Last update time must not be negative.");
         }
         return copy;
     }
