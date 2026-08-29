@@ -7,6 +7,7 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum Command {
 
+    JOIN_ROOM((byte) 0x1),
     UPDATE_STATE((byte) 0x3),
     ;
 

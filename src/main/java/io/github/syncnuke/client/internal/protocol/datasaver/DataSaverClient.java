@@ -2,7 +2,9 @@ package io.github.syncnuke.client.internal.protocol.datasaver;
 
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseCodec;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.StateData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.JoinData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
@@ -51,7 +53,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     public void login(String username, String room) {
-        // TODO: Implement room logic in datasaver stack
+        send(new JoinData(Command.JOIN_ROOM, Objects.requireNonNull(room, "room")));
     }
 
     @Override
@@ -59,14 +61,14 @@ public class DataSaverClient extends SyncClient<BaseData> {
         try {
             Command command = Objects.requireNonNull(data.getCommand());
             if (command == Command.UPDATE_STATE) {
-                handleStateUpdate(data);
+                handleStateUpdate((StateData) data);
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
         }
     }
 
-    private void handleStateUpdate(BaseData data) {
+    private void handleStateUpdate(StateData data) {
         PlayerState serverStatus = getPlayer().getStatus();
         serverStatus.setPlaybackState(
                 data.getState() == State.PAUSED
@@ -100,7 +102,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private void sendState(PlayerState status) {
         try {
             State state = getState(status);
-            BaseData message = new BaseData(
+            StateData message = new StateData(
                     Command.UPDATE_STATE,
                     state,
                     status.getPosition(),

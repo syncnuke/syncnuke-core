@@ -1,7 +1,9 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.StateData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.JoinData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.PlayerManager;
@@ -87,8 +89,20 @@ class DataSaverClientTest {
     }
 
     @Test
+    void loginJoinsRoom() {
+        client.login("user", "room");
+
+        ArgumentCaptor<JoinData> messageCaptor =
+                ArgumentCaptor.forClass(JoinData.class);
+        verify(netClient).send(messageCaptor.capture());
+        JoinData message = messageCaptor.getValue();
+        assertEquals(Command.JOIN_ROOM, message.getCommand());
+        assertEquals("room", message.getRoom());
+    }
+
+    @Test
     void inboundStateIsHandledWhileLocalSendIsInProgress() {
-        BaseData inbound = new BaseData(
+        StateData inbound = new StateData(
                 Command.UPDATE_STATE,
                 State.PLAYING,
                 15.0,
@@ -97,7 +111,7 @@ class DataSaverClientTest {
         doAnswer(invocation -> {
             client.handleResponse(inbound);
             return null;
-        }).when(netClient).send(any(BaseData.class));
+        }).when(netClient).send(any(StateData.class));
 
         client.onStatusChange(
                 state(PlaybackState.PLAYING, 5.0, 1.0)
@@ -120,7 +134,7 @@ class DataSaverClientTest {
         current.setLastUpdateTime(123);
         playerStatus.set(current);
 
-        client.handleResponse(new BaseData(
+        client.handleResponse(new StateData(
                 Command.UPDATE_STATE,
                 State.PLAYING,
                 9.0,
@@ -141,7 +155,7 @@ class DataSaverClientTest {
     void serverAppliedStatusIsNotEchoed() {
         PlayerState expected = state(PlaybackState.PAUSED, 10.0, 1.0);
         playerStatus.set(expected);
-        client.handleResponse(new BaseData(
+        client.handleResponse(new StateData(
                 Command.UPDATE_STATE,
                 State.PAUSED,
                 10.0,
@@ -151,14 +165,14 @@ class DataSaverClientTest {
 
         client.onStatusChange(expected.copy());
 
-        verify(netClient, never()).send(any(BaseData.class));
+        verify(netClient, never()).send(any(StateData.class));
     }
 
     @Test
     void keepAliveSendsUnchangedStatusAtExactInterval() {
         PlayerState expected = state(PlaybackState.PAUSED, 10.0, 1.0);
         playerStatus.set(expected);
-        client.handleResponse(new BaseData(
+        client.handleResponse(new StateData(
                 Command.UPDATE_STATE,
                 State.PAUSED,
                 10.0,
@@ -170,8 +184,8 @@ class DataSaverClientTest {
         currentTime.addAndGet(10000);
         keepAliveTask.run();
 
-        ArgumentCaptor<BaseData> messageCaptor =
-                ArgumentCaptor.forClass(BaseData.class);
+        ArgumentCaptor<StateData> messageCaptor =
+                ArgumentCaptor.forClass(StateData.class);
         verify(netClient).send(messageCaptor.capture());
         assertEquals(Command.UPDATE_STATE, messageCaptor.getValue().getCommand());
         assertEquals(State.PAUSED, messageCaptor.getValue().getState());

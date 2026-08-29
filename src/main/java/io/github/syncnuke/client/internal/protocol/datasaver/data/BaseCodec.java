@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 
 public class BaseCodec implements Codec<BaseData> {
 
@@ -17,34 +18,74 @@ public class BaseCodec implements Codec<BaseData> {
         if (value == null) {
             return new byte[0];
         }
+        return switch (value.getCommand()) {
+            case UPDATE_STATE -> encodeUpdateState((StateData) value);
+            case JOIN_ROOM -> encodeJoinRoom((JoinData) value);
+        };
+    }
 
+    private byte[] encodeUpdateState(StateData value) {
         byte[] bytes = new byte[MESSAGE_BYTES];
         bytes[0] = value.getCommand().getCode();
         bytes[1] = value.getState().getCode();
         insertDouble(bytes, 2, value.getPosition());
         insertDouble(bytes, 2 + DOUBLE_BYTES, value.getPlaybackSpeed());
-
         return bytes;
+    }
+
+    private byte[] encodeJoinRoom(JoinData value) {
+        byte[] room = value.getRoom().getBytes(StandardCharsets.UTF_8);
+        if (room.length > 0xffff) {
+            throw new IllegalArgumentException("Room name is too long");
+        }
+        return ByteBuffer.allocate(3 + room.length)
+                .order(ByteOrder.BIG_ENDIAN)
+                .put(Command.JOIN_ROOM.getCode())
+                .putShort((short) room.length)
+                .put(room)
+                .array();
     }
 
     @Override
     public BaseData decode(InputStream in) throws IOException {
-        byte[] bytes = new byte[MESSAGE_BYTES];
+        int code = in.read();
+        if (code == -1) {
+            throw new IOException("End of stream reached");
+        }
+        return switch (Command.fromCode((byte) code)) {
+            case UPDATE_STATE -> decodeUpdateState(in);
+            case JOIN_ROOM -> decodeJoinRoom(in);
+        };
+    }
+
+    private static byte[] readBytes(InputStream in, int length) throws IOException {
+        byte[] bytes = new byte[length];
         int offset = 0;
-        while (offset < bytes.length) {
-            int bytesRead = in.read(bytes, offset, bytes.length - offset);
+        while (offset < length) {
+            int bytesRead = in.read(bytes, offset, length - offset);
             if (bytesRead == -1) {
                 throw new IOException("End of stream reached");
             }
             offset += bytesRead;
         }
+        return bytes;
+    }
 
-        Command command = Command.fromCode(bytes[0]);
-        State state = State.fromCode(bytes[1]);
-        double position = extractDouble(bytes, 2);
-        double playbackSpeed = extractDouble(bytes, 2 + DOUBLE_BYTES);
+    private StateData decodeUpdateState(InputStream in) throws IOException {
+        byte[] bytes = readBytes(in, MESSAGE_BYTES - 1);
+        State state = State.fromCode(bytes[0]);
+        double position = extractDouble(bytes, 1);
+        double playbackSpeed = extractDouble(bytes, 1 + DOUBLE_BYTES);
+        return new StateData(Command.UPDATE_STATE, state, position, playbackSpeed);
+    }
 
-        return new BaseData(command, state, position, playbackSpeed);
+    private JoinData decodeJoinRoom(InputStream in) throws IOException {
+        byte[] lengthBytes = readBytes(in, Short.BYTES);
+        int roomLength = ByteBuffer.wrap(lengthBytes)
+                .order(ByteOrder.BIG_ENDIAN)
+                .getShort() & 0xffff;
+        String room = new String(readBytes(in, roomLength), StandardCharsets.UTF_8);
+        return new JoinData(Command.JOIN_ROOM, room);
     }
 
     @SuppressWarnings("SameParameterValue")

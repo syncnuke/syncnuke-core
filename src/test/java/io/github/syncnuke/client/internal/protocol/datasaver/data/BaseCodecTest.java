@@ -7,6 +7,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class BaseCodecTest {
@@ -15,8 +16,8 @@ class BaseCodecTest {
 
     @Test
     void decodesConsecutiveMessagesWithoutConsumingTheNextFrame() throws IOException {
-        BaseData first = new BaseData(Command.UPDATE_STATE, State.PLAYING, 12.5, 1.5);
-        BaseData second = new BaseData(Command.UPDATE_STATE, State.PAUSED, 42.25, 0.75);
+        StateData first = new StateData(Command.UPDATE_STATE, State.PLAYING, 12.5, 1.5);
+        StateData second = new StateData(Command.UPDATE_STATE, State.PAUSED, 42.25, 0.75);
         byte[] input = concatenate(codec.encode(first), codec.encode(second));
         InputStream stream = new ByteArrayInputStream(input);
 
@@ -26,7 +27,7 @@ class BaseCodecTest {
 
     @Test
     void waitsForACompleteMessageWhenTcpReadIsFragmented() throws IOException {
-        BaseData expected = new BaseData(Command.UPDATE_STATE, State.PLAYING, 7.75, 2.0);
+        StateData expected = new StateData(Command.UPDATE_STATE, State.PLAYING, 7.75, 2.0);
         InputStream stream = new FilterInputStream(
                 new ByteArrayInputStream(codec.encode(expected))
         ) {
@@ -37,6 +38,20 @@ class BaseCodecTest {
         };
 
         assertEquals(expected, codec.decode(stream));
+    }
+
+    @Test
+    void encodesAndDecodesRoomJoin() throws IOException {
+        JoinData message = new JoinData(Command.JOIN_ROOM, "røom");
+
+        assertArrayEquals(
+                new byte[] {1, 0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'},
+                codec.encode(message)
+        );
+        assertEquals(
+                message,
+                codec.decode(new ByteArrayInputStream(codec.encode(message)))
+        );
     }
 
     private static byte[] concatenate(byte[] first, byte[] second) {
