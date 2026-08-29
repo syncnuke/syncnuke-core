@@ -301,6 +301,7 @@ class PlayerManagerTest {
 
         verify(videoPlayer).getStatus();
         verify(videoPlayer).play();
+        verify(videoPlayer).setPlaybackSpeed(2.0);
         verify(videoPlayer).seek(20.0);
         verify(videoPlayer, never()).close();
         assertEquals(PlaybackState.PAUSED,
@@ -345,13 +346,14 @@ class PlayerManagerTest {
 
     @Test
     void updateStatus_skipsCommandsWhenAlreadyAligned() throws Exception {
-        PlayerState desired = state(PlaybackState.PAUSED, 0.1, 2.0);
+        PlayerState desired = state(PlaybackState.PAUSED, 0.1, 1.0);
         clearInvocations(videoPlayer);
 
         manager.updateStatus(desired);
 
         verify(videoPlayer, never()).play();
         verify(videoPlayer, never()).pause();
+        verify(videoPlayer, never()).setPlaybackSpeed(org.mockito.ArgumentMatchers.anyDouble());
         verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
         verify(videoPlayer, never()).close();
     }

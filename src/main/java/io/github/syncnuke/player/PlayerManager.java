@@ -122,6 +122,10 @@ public final class PlayerManager implements AutoCloseable {
                 }
             }
 
+            if (Double.compare(current.getPlaybackSpeed(), desired.getPlaybackSpeed()) != 0) {
+                player.setPlaybackSpeed(desired.getPlaybackSpeed());
+            }
+
             long elapsedMillis = Math.max(0, timingService.getCurrentTime() - current.getLastUpdateTime());
             double expectedPosition = expectedPosition(current, elapsedMillis);
             double drift = Math.abs(desired.getPosition() - expectedPosition);
