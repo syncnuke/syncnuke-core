@@ -6,7 +6,7 @@ import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.JoinData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;

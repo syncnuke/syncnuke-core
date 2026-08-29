@@ -1,6 +1,7 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import org.junit.jupiter.api.AfterEach;
@@ -11,53 +12,55 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.ExecutorService;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.same;
+
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SyncManagerTest {
 
     @Mock
-    private PlayerManager videoPlayer;
+    private VideoPlayer videoPlayer;
 
     private SyncManager manager;
 
     @BeforeEach
     void setUp() throws Exception {
         resetSingleton();
+        when(videoPlayer.getStatus()).thenReturn(new PlayerState());
     }
 
     @AfterEach
     void tearDown() throws Exception {
         SyncManager current = getSingleton();
         if (current != null) {
-            Field executorField =
-                    SyncManager.class.getDeclaredField("syncExecutor");
-            executorField.setAccessible(true);
-            ExecutorService executor =
-                    (ExecutorService) executorField.get(current);
-            executor.shutdownNow();
+            current.close();
         }
         resetSingleton();
     }
 
     @Test
-    void getInstance_registersListenerOnVideoPlayer() {
-        manager = SyncManager.getInstance(videoPlayer);
+    void getInstance_wrapsVideoPlayerAndRegistersInternalListener() throws Exception {
+        manager = SyncManager.getInstance(videoPlayer, 0);
 
-        verify(videoPlayer).setListener(same(manager));
+        verify(videoPlayer).getStatus();
+        PlayerManager playerManager = getPlayerManager(manager);
+        Field listenerField = PlayerManager.class.getDeclaredField("eventListener");
+        listenerField.setAccessible(true);
+        assertSame(manager, listenerField.get(playerManager));
     }
 
     @Test
     void onStatusChange_forwardsExactSnapshotWithoutReadingVideoPlayer()
             throws Exception {
-        manager = SyncManager.getInstance(videoPlayer);
+        manager = SyncManager.getInstance(videoPlayer, 0);
         SyncClient<?> syncClient = mock(SyncClient.class);
         setSyncClient(manager, syncClient);
         clearInvocations(videoPlayer);
@@ -70,6 +73,13 @@ class SyncManagerTest {
 
         verify(syncClient, timeout(1000)).onStatusChange(same(status));
         verifyNoInteractions(videoPlayer);
+    }
+
+    private static PlayerManager getPlayerManager(SyncManager syncManager)
+            throws Exception {
+        Field playerManagerField = SyncManager.class.getDeclaredField("playerManager");
+        playerManagerField.setAccessible(true);
+        return (PlayerManager) playerManagerField.get(syncManager);
     }
 
     private static void setSyncClient(

@@ -2,8 +2,7 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.PlayerManager;
-import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
@@ -20,13 +19,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * Base class implementation for video synchronization clients. Responsibilities include:
  * <ul>
  *   <li>Playback change detection to prevent unnecessary updates</li>
- *   <li>Centralized access to a {@link PlayerManager} instance</li>
+ *   <li>Centralized access to the internally managed video player</li>
  *   <li>Setting up a networking client for synchronization</li>
  *   <li>Preventing time-outs through a keep-alive mechanism</li>
  * </ul>
  */
 @Slf4j
-public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoCloseable {
+public abstract class SyncClient<T> implements AutoCloseable {
 
     @Getter
     private final PlayerManager player;
@@ -88,6 +87,8 @@ public abstract class SyncClient<T> implements VideoPlayerEventListener, AutoClo
     }
 
     public abstract void login(String username, String room);
+
+    public abstract void onStatusChange(PlayerState status);
 
     /**
      * Handles the response received from the server.

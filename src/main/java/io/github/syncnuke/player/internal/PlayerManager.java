@@ -1,4 +1,6 @@
-package io.github.syncnuke.player;
+package io.github.syncnuke.player.internal;
+
+import io.github.syncnuke.player.VideoPlayer;
 
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
@@ -20,9 +22,6 @@ public final class PlayerManager implements AutoCloseable {
     private static final TaggedLogger log = Logger.tag("PlayerManager");
     private static final long DEFAULT_POLL_INTERVAL_MILLIS = 250;
     private static final double POSITION_DRIFT_TOLERANCE_SECONDS = 0.2;
-    private static final Object INSTANCE_LOCK = new Object();
-
-    private static volatile PlayerManager instance;
 
     private final TimingService timingService;
     private final long pollIntervalMillis;
@@ -43,21 +42,14 @@ public final class PlayerManager implements AutoCloseable {
         this.pollIntervalMillis = pollIntervalMillis <= 0 ? 0 : pollIntervalMillis;
     }
 
-    public static PlayerManager getInstance() {
-        return getInstance(DEFAULT_POLL_INTERVAL_MILLIS);
+    public static PlayerManager create(VideoPlayer videoPlayer) {
+        return create(videoPlayer, DEFAULT_POLL_INTERVAL_MILLIS);
     }
 
-    public static PlayerManager getInstance(long pollIntervalMillis) {
-        PlayerManager current = instance;
-        if (current != null) {
-            return current;
-        }
-        synchronized (INSTANCE_LOCK) {
-            if (instance == null) {
-                instance = new PlayerManager(new TimingServiceImpl(), pollIntervalMillis);
-            }
-            return instance;
-        }
+    public static PlayerManager create(VideoPlayer videoPlayer, long pollIntervalMillis) {
+        PlayerManager playerManager = new PlayerManager(new TimingServiceImpl(), pollIntervalMillis);
+        playerManager.start(videoPlayer);
+        return playerManager;
     }
 
     public void start(VideoPlayer videoPlayer) {
@@ -293,11 +285,6 @@ public final class PlayerManager implements AutoCloseable {
             closeFailure = error;
         } finally {
             timingService.shutdown();
-            synchronized (INSTANCE_LOCK) {
-                if (instance == this) {
-                    instance = null;
-                }
-            }
         }
 
         if (closeFailure != null) {

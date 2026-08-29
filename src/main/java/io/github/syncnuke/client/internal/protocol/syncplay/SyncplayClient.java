@@ -10,7 +10,7 @@ import io.github.syncnuke.client.internal.protocol.syncplay.data.builder.HelloMe
 import io.github.syncnuke.client.internal.protocol.syncplay.data.exception.SerializationException;
 import io.github.syncnuke.client.internal.protocol.syncplay.service.DataProcessor;
 import io.github.syncnuke.client.internal.protocol.syncplay.service.extractor.FileDataExtractor;
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;

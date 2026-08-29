@@ -2,7 +2,7 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import org.junit.jupiter.api.BeforeEach;

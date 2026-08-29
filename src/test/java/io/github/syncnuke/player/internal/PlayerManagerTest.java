@@ -1,4 +1,6 @@
-package io.github.syncnuke.player;
+package io.github.syncnuke.player.internal;
+
+import io.github.syncnuke.player.VideoPlayer;
 
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;

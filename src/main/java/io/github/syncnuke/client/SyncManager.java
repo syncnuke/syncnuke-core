@@ -1,7 +1,8 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.player.PlayerManager;
-import io.github.syncnuke.player.VideoPlayerEventListener;
+import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.internal.PlayerManager;
+import io.github.syncnuke.player.internal.VideoPlayerEventListener;
 import io.github.syncnuke.player.data.PlayerState;
 import lombok.extern.slf4j.Slf4j;
 
@@ -25,20 +26,36 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
 
     // Sync protocol variables
     private SyncClient<?> syncClient;
-    private final PlayerManager videoPlayer;
+    private final VideoPlayer videoPlayer;
+    private final PlayerManager playerManager;
 
-    private SyncManager(PlayerManager videoPlayer) {
+    private SyncManager(VideoPlayer videoPlayer, PlayerManager playerManager) {
         this.videoPlayer = videoPlayer;
+        this.playerManager = playerManager;
     }
 
-    public static SyncManager getInstance(PlayerManager videoPlayer) {
+    public static SyncManager getInstance(VideoPlayer videoPlayer) {
         Objects.requireNonNull(videoPlayer, "videoPlayer");
         if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
             return instance;
         }
 
-        instance = new SyncManager(videoPlayer);
-        videoPlayer.setListener(instance);
+        PlayerManager playerManager = PlayerManager.create(videoPlayer);
+        instance = new SyncManager(videoPlayer, playerManager);
+        playerManager.setListener(instance);
+
+        return instance;
+    }
+
+    public static SyncManager getInstance(VideoPlayer videoPlayer, long pollIntervalMillis) {
+        Objects.requireNonNull(videoPlayer, "videoPlayer");
+        if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
+            return instance;
+        }
+
+        PlayerManager playerManager = PlayerManager.create(videoPlayer, pollIntervalMillis);
+        instance = new SyncManager(videoPlayer, playerManager);
+        playerManager.setListener(instance);
 
         return instance;
     }
@@ -57,7 +74,7 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
                         protocol,
                         server,
                         port,
-                        videoPlayer
+                        playerManager
                 );
                 tmp.login(username, room);
 
@@ -110,6 +127,11 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
     public void close() {
         stop();
         syncExecutor.shutdownNow();
+        try {
+            playerManager.close();
+        } catch (Exception e) {
+            log.error("Error while closing video player: {}", e.getMessage());
+        }
         synchronized (INSTANCE_LOCK) {
             if (instance == this) {
                 instance = null;

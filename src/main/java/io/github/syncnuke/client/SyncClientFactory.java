@@ -2,7 +2,7 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.protocol.datasaver.DataSaverClient;
 import io.github.syncnuke.client.internal.protocol.syncplay.SyncplayClient;
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.internal.PlayerManager;
 
 /**
  * Factory for creating SyncClient instances based on the specified protocol.

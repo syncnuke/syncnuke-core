@@ -2,7 +2,7 @@ package io.github.syncnuke.client.internal.protocol.syncplay;
 
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.protocol.syncplay.service.DataProcessor;
-import io.github.syncnuke.player.PlayerManager;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
