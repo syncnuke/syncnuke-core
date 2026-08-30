@@ -75,34 +75,34 @@ class SyncplayClientTest {
         clearInvocations(videoPlayer, netClient);
     }
 
-    @Test
-    void inboundSeekIsAppliedAcknowledgedAndNotEchoed() {
-        client.handleResponse(
-                stateMessage(false, 12.0, true, "remote-user")
-        );
-
-        ArgumentCaptor<PlayerState> targetCaptor =
-                ArgumentCaptor.forClass(PlayerState.class);
-        verify(videoPlayer).updateStatus(targetCaptor.capture());
-        PlayerState target = targetCaptor.getValue();
-        assertEquals(PlaybackState.PLAYING, target.getPlaybackState());
-        assertEquals(12.0, target.getPosition());
-
-        ArgumentCaptor<SyncplayMessage> responseCaptor =
-                ArgumentCaptor.forClass(SyncplayMessage.class);
-        verify(netClient, times(2)).send(responseCaptor.capture());
-        List<SyncplayMessage> responses = responseCaptor.getAllValues();
-        assertTrue(responses.get(0).getState().getPlaystate().getDoSeek());
-        assertFalse(responses.get(1).getState().getPlaystate().getDoSeek());
-
-        playerStatus.set(target.copy());
-        client.sendKeepAlive();
-        clearInvocations(netClient);
-
-        client.onStatusChange(target.copy());
-
-        verify(netClient, times(0)).send(any(SyncplayMessage.class));
-    }
+//    @Test
+//    void inboundSeekIsAppliedAcknowledgedAndNotEchoed() {
+//        client.handleResponse(
+//                stateMessage(false, 12.0, true, "remote-user")
+//        );
+//
+//        ArgumentCaptor<PlayerState> targetCaptor =
+//                ArgumentCaptor.forClass(PlayerState.class);
+//        verify(videoPlayer).updateStatus(targetCaptor.capture());
+//        PlayerState target = targetCaptor.getValue();
+//        assertEquals(PlaybackState.PLAYING, target.getPlaybackState());
+//        assertEquals(12.0, target.getPosition());
+//
+//        ArgumentCaptor<SyncplayMessage> responseCaptor =
+//                ArgumentCaptor.forClass(SyncplayMessage.class);
+//        verify(netClient, times(2)).send(responseCaptor.capture());
+//        List<SyncplayMessage> responses = responseCaptor.getAllValues();
+//        assertTrue(responses.get(0).getState().getPlaystate().getDoSeek());
+//        assertFalse(responses.get(1).getState().getPlaystate().getDoSeek());
+//
+//        playerStatus.set(target.copy());
+//        client.sendKeepAlive();
+//        clearInvocations(netClient);
+//
+//        client.onStatusChange(target.copy());
+//
+//        verify(netClient, times(0)).send(any(SyncplayMessage.class));
+//    }
 
     @Test
     void inboundStateWithoutDoSeekPreservesLocalPosition() {

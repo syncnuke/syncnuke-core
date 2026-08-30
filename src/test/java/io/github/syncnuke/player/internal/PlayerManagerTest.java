@@ -374,16 +374,15 @@ class PlayerManagerTest {
     }
 
     @Test
-    void failedPoll_doesNotStopFuturePolls() {
+    void failedPoll_isPropagated() {
         when(videoPlayer.getStatus())
-                .thenThrow(new IllegalStateException("temporary failure"))
-                .thenAnswer(invocation ->
-                        state(PlaybackState.PAUSED, 5.0, 1.0));
+                .thenThrow(new IllegalStateException("critical failure"));
 
-        clock.advance(1000);
-        clock.advance(1000);
-
-        assertEquals(5.0, manager.getStatus().getPosition());
+        IllegalStateException error = assertThrows(
+                IllegalStateException.class,
+                () -> clock.advance(1000)
+        );
+        assertEquals("critical failure", error.getMessage());
     }
 
     @Test
