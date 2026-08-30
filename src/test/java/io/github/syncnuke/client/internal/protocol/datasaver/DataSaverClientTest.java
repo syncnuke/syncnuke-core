@@ -24,12 +24,14 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -72,7 +74,6 @@ class DataSaverClientTest {
         client = new DataSaverClient(
                 "localhost",
                 8080,
-                0,
                 10000,
                 videoPlayer,
                 netClient,
@@ -109,6 +110,16 @@ class DataSaverClientTest {
         client.onStatusChange(localStatus);
 
         verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void sendFailureDoesNotEscapeStatusCallback() {
+        doThrow(new IllegalStateException("send failed"))
+                .when(netClient).send(any(StateData.class));
+
+        assertDoesNotThrow(() -> client.onStatusChange(
+                state(PlaybackState.PAUSED, 0.0, 1.0)
+        ));
     }
 
     @Test
@@ -340,7 +351,6 @@ class DataSaverClientTest {
         new DataSaverClient(
                 "localhost",
                 8080,
-                0,
                 0,
                 videoPlayer,
                 zeroIntervalNetClient,

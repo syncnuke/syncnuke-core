@@ -24,29 +24,23 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private static final int DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS = 10000;
 
     private final NetClient<BaseData> netClient;
-    private final int debounceDelay; // in milliseconds
 
     private volatile PlayerState serverState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
-    public DataSaverClient(String host, int port, int debounceDelay, PlayerManager videoPlayer) {
-        this(host, port, debounceDelay, DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS, videoPlayer);
-    }
-
-    public DataSaverClient(String host, int port, int debounceDelay, int keepAliveInterval, PlayerManager videoPlayer) {
-        this(host, port, debounceDelay, keepAliveInterval, videoPlayer, new TcpClient<>(), new TimingServiceImpl());
-    }
-
     public DataSaverClient(String host, int port, PlayerManager videoPlayer) {
-        this(host, port, 0, videoPlayer);
+        this(host, port, DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS, videoPlayer);
     }
 
-    DataSaverClient(String host, int port, int debounceDelay, int keepAliveInterval, PlayerManager videoPlayer,
+    public DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer) {
+        this(host, port, keepAliveInterval, videoPlayer, new TcpClient<>(), new TimingServiceImpl());
+    }
+
+    DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer,
                     NetClient<BaseData> netClient, TimingService timingService) {
         super(keepAliveInterval, videoPlayer, timingService);
         this.netClient = Objects.requireNonNull(netClient, "netClient");
-        this.debounceDelay = debounceDelay;
         connect(host, port, new BaseCodec());
     }
 
@@ -115,8 +109,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             send(message);
-            Thread.sleep(debounceDelay);
-        } catch (InterruptedException e) {
+        } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
     }
