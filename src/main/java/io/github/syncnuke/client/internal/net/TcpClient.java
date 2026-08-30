@@ -54,7 +54,7 @@ public class TcpClient<T> implements NetClient<T> {
                     }
                 }
             } catch (IOException e) {
-                log.error("Connection lost: {}", e.getMessage());
+                log.error("Connection failed: {}", e.getMessage());
             }
         });
     }
