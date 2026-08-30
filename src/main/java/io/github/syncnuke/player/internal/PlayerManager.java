@@ -15,7 +15,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Coordinates a {@link VideoPlayer} and maintains the last confirmed player
- * status observed through polling.
+ * status observed through polling. Filters out excessive state updates,
+ * including seek drift of up to {@value #POSITION_DRIFT_TOLERANCE_SECONDS} seconds.
  */
 public final class PlayerManager implements AutoCloseable {
 

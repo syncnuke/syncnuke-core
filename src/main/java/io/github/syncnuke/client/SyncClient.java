@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * Base class implementation for video synchronization clients. Responsibilities include:
  * <ul>
- *   <li>Playback change detection to prevent unnecessary updates</li>
  *   <li>Centralized access to the internally managed video player</li>
  *   <li>Setting up a networking client for synchronization</li>
  *   <li>Preventing time-outs through a keep-alive mechanism</li>
@@ -31,10 +30,6 @@ public abstract class SyncClient<T> implements AutoCloseable {
     private final PlayerManager player;
 
     private final TimingService timingService;
-
-    private volatile PlayerState serverState;
-    private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
-    private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
     // KeepAlive handling
     private ScheduledFuture<?> keepAliveTask;
@@ -104,61 +99,6 @@ public abstract class SyncClient<T> implements AutoCloseable {
     }
 
     protected abstract void sendKeepAlive();
-
-    /**
-     * Used to filter out video state updates that are too minor to trigger server notifications.
-     *
-     * TODO: Decide whether this policy belongs to the SyncNuke standard or to each protocol implementation.
-     *
-     * @param localStatus the status reported by the local video player
-     * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
-     */
-    protected boolean isSignificantChange(PlayerState localStatus) {
-        Objects.requireNonNull(localStatus, "localStatus");
-        if (serverState == null) {
-            return true;
-        }
-
-        if (localStatus.getPlaybackState() != serverState.getPlaybackState()) {
-            // Status changed
-            return true;
-        }
-
-        if (Math.abs(localStatus.getPosition() - serverState.getPosition()) <= MIN_PROG_CHANGE) {
-            // Progress change is not significant enough
-            return false;
-        }
-
-        long currentTime = getCurrentTime();
-        long timeDiff = currentTime - serverState.getLastUpdateTime();
-
-        boolean paused = localStatus.getPlaybackState() == PlaybackState.PAUSED;
-        double playbackSpeed = localStatus.getPlaybackSpeed();
-        if (paused || timeDiff <= 0 || playbackSpeed <= 0) {
-            // Return exclusively based on progress change
-            return true;
-        }
-
-        double expectedAdvance = timeDiff * playbackSpeed;
-        if ((long) expectedAdvance == 0) {
-            // Prevent division by zero
-            return false;
-        }
-        double positionDiff = Math.abs(localStatus.getPosition() - serverState.getPosition()) * 1000; // in milliseconds
-        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
-
-        // Progress change does not match expected change based on playback speed
-        return relativeError > DRIFT_THRESHOLD;
-    }
-
-    /**
-     * Records playback state decoded from an inbound server command.
-     */
-    protected final void updateServerState(PlayerState serverStatus) {
-        PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
-        expectation.setLastUpdateTime(getCurrentTime());
-        serverState = expectation;
-    }
 
     /**
      * Updates the timestamp of the last message sent.

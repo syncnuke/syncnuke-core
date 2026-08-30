@@ -113,12 +113,10 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
                 state.getPlaystate().getPaused() != paused;
 
         log.debug("Player status event detected: {}", status);
-        if (isSignificantChange(status)) {
-            state.getPlaystateBuilder().setPosition(position);
-            state.getPlaystateBuilder().setPaused(paused);
-            state.getPlaystateBuilder().setDoSeek(!playbackStateChanged);
-            acknowledgeState(status);
-        }
+        state.getPlaystateBuilder().setPosition(position);
+        state.getPlaystateBuilder().setPaused(paused);
+        state.getPlaystateBuilder().setDoSeek(!playbackStateChanged);
+        acknowledgeState(status);
     }
 
     @Override
@@ -144,7 +142,6 @@ public class SyncplayClient extends SyncClient<SyncplayMessage> {
                         : PlaybackState.PLAYING
         );
         serverStatus.setPosition(stateData.getPlaystate().getPosition());
-        updateServerState(serverStatus);
 
         if (wasSentByUs(stateData)) {
             // The server is telling us about our update to get on the same page

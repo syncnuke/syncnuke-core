@@ -1,10 +1,10 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.internal.protocol.datasaver.data.StateData;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.JoinData;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.StateData;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
@@ -13,6 +13,8 @@ import io.github.syncnuke.service.TimingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -27,8 +29,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -98,6 +100,142 @@ class DataSaverClientTest {
         JoinData message = messageCaptor.getValue();
         assertEquals(Command.JOIN_ROOM, message.getCommand());
         assertEquals("room", message.getRoom());
+    }
+
+    @Test
+    void significantChangeIsSentBeforeServerExpectationIsRecorded() {
+        PlayerState localStatus = state(PlaybackState.PAUSED, 0.0, 1.0);
+
+        client.onStatusChange(localStatus);
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void playbackStateChangeIsSent() {
+        recordServerState(PlaybackState.PAUSED, 0.0, 1.0);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 0.0, 1.0));
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void progressChangeBelowThresholdIsNotSent() {
+        recordServerState(PlaybackState.PLAYING, 10.0, 1.0);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 10.3, 1.0));
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void pausedSeekIsSent() {
+        recordServerState(PlaybackState.PAUSED, 10.0, 1.0);
+
+        client.onStatusChange(state(PlaybackState.PAUSED, 11.1, 1.0));
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {0.0, -0.1})
+    void progressChangeWithInvalidPlaybackSpeedIsSent(double speed) {
+        recordServerState(PlaybackState.PLAYING, 0.0, 1.0);
+        currentTime.incrementAndGet();
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 0.6, speed));
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void seekThatDiffersFromExpectedProgressionIsSent() {
+        recordServerState(PlaybackState.PLAYING, 0.0, 1.0);
+        currentTime.addAndGet(600);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 2.0, 1.0));
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void changeWithExpectedAdvanceTooSmallIsNotSent() {
+        recordServerState(PlaybackState.PLAYING, 0.0, 1.0);
+        currentTime.incrementAndGet();
+
+        client.onStatusChange(state(
+                PlaybackState.PLAYING,
+                10.0,
+                0.000000000001
+        ));
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void ordinaryProgressionIsNotSent() {
+        recordServerState(PlaybackState.PLAYING, 0.0, 1.0);
+        currentTime.addAndGet(600);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 0.6, 1.0));
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void serverExpectationIsRecordedBeforeStatusIsApplied() {
+        PlayerState expected = state(PlaybackState.PAUSED, 10.0, 1.0);
+        playerStatus.set(expected);
+        doAnswer(invocation -> {
+            client.onStatusChange(expected.copy());
+            verify(netClient, never()).send(any(StateData.class));
+            return null;
+        }).when(videoPlayer).updateStatus(any(PlayerState.class));
+
+        client.handleResponse(stateData(PlaybackState.PAUSED, 10.0, 1.0));
+
+        verify(videoPlayer).updateStatus(any(PlayerState.class));
+    }
+
+    @Test
+    void localSendDoesNotChangeServerExpectation() {
+        recordServerState(PlaybackState.PAUSED, 10.0, 1.0);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
+        verify(netClient).send(any(StateData.class));
+        clearInvocations(netClient);
+        client.onStatusChange(state(PlaybackState.PAUSED, 10.0, 1.0));
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void sendsAndKeepAliveDoNotChangeServerExpectation() {
+        PlayerState expected = state(PlaybackState.PAUSED, 10.0, 1.0);
+        playerStatus.set(expected);
+        recordServerState(PlaybackState.PAUSED, 10.0, 1.0);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
+        client.sendKeepAlive();
+        clearInvocations(netClient);
+        client.onStatusChange(expected.copy());
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void serverExpectationKeepsAnOwnedSnapshot() {
+        PlayerState serverStatus = state(PlaybackState.PAUSED, 10.0, 1.0);
+        when(videoPlayer.getStatus()).thenReturn(serverStatus);
+        client.handleResponse(stateData(PlaybackState.PAUSED, 10.0, 1.0));
+
+        serverStatus.setPlaybackState(PlaybackState.PLAYING);
+        serverStatus.setPosition(99.0);
+        clearInvocations(netClient);
+        client.onStatusChange(state(PlaybackState.PAUSED, 10.0, 1.0));
+
+        verify(netClient, never()).send(any(StateData.class));
     }
 
     @Test
@@ -214,6 +352,35 @@ class DataSaverClientTest {
                 anyLong(),
                 anyLong(),
                 any(TimeUnit.class)
+        );
+    }
+
+    private void recordServerState(
+            PlaybackState playbackState,
+            double position,
+            double playbackSpeed
+    ) {
+        client.handleResponse(stateData(
+                playbackState,
+                position,
+                playbackSpeed
+        ));
+        clearInvocations(netClient);
+    }
+
+    private static StateData stateData(
+            PlaybackState playbackState,
+            double position,
+            double playbackSpeed
+    ) {
+        State wireState = playbackState == PlaybackState.PAUSED
+                ? State.PAUSED
+                : State.PLAYING;
+        return new StateData(
+                Command.UPDATE_STATE,
+                wireState,
+                position,
+                playbackSpeed
         );
     }
 

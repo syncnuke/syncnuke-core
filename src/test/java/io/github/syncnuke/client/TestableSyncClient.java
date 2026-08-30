@@ -32,17 +32,13 @@ final class TestableSyncClient extends SyncClient<Object> {
     @Override
     protected void handleResponse(Object data) {
         if (data instanceof PlayerState) {
-            PlayerState serverStatus = (PlayerState) data;
-            updateServerState(serverStatus);
-            getPlayer().updateStatus(serverStatus);
+            getPlayer().updateStatus((PlayerState) data);
         }
     }
 
     @Override
     public void onStatusChange(PlayerState localStatus) {
-        if (isSignificantChange(localStatus)) {
-            send(localStatus);
-        }
+        send(localStatus);
     }
 
     @Override
