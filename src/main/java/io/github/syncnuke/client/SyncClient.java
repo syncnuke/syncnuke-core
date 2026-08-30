@@ -30,7 +30,6 @@ public abstract class SyncClient<T> implements AutoCloseable {
     @Getter
     private final PlayerManager player;
 
-    @Getter
     private final TimingService timingService;
 
     private volatile PlayerState serverState;
