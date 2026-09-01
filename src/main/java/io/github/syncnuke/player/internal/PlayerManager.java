@@ -1,5 +1,6 @@
 package io.github.syncnuke.player.internal;
 
+import io.github.syncnuke.player.NoVideoLoadedException;
 import io.github.syncnuke.player.VideoPlayer;
 
 import io.github.syncnuke.player.data.PlaybackState;
@@ -135,44 +136,50 @@ public final class PlayerManager implements AutoCloseable {
     }
 
     private void poll() {
-        VideoPlayer player;
-        synchronized (stateLock) {
-            player = videoPlayer;
-        }
-        if (player == null) {
-            return;
-        }
-
-        PlayerState observed = observe(player);
-        VideoPlayerEventListener listener = null;
-        PlayerState eventStatus = null;
-
-        synchronized (stateLock) {
-            if (player != videoPlayer) {
+        try {
+            VideoPlayer player;
+            synchronized (stateLock) {
+                player = videoPlayer;
+            }
+            if (player == null) {
                 return;
             }
 
-            PlayerState previous = lastPlayerState;
-            long elapsedMillis = Math.max(0, observed.getLastUpdateTime() - previous.getLastUpdateTime());
-            boolean significantChange = hasSignificantChange(
-                    previous,
-                    observed,
-                    elapsedMillis
-            );
+            PlayerState observed = observe(player);
+            VideoPlayerEventListener listener = null;
+            PlayerState eventStatus = null;
 
-            lastPlayerState = observed;
-            if (significantChange && eventListener != null) {
-                listener = eventListener;
-                eventStatus = observed;
-            }
-        }
+            synchronized (stateLock) {
+                if (player != videoPlayer) {
+                    return;
+                }
 
-        if (listener != null) {
-            try {
-                listener.onStatusChange(eventStatus);
-            } catch (Throwable error) {
-                log.error(error, "Video player status listener failed");
+                PlayerState previous = lastPlayerState;
+                long elapsedMillis = Math.max(0, observed.getLastUpdateTime() - previous.getLastUpdateTime());
+                boolean significantChange = hasSignificantChange(
+                        previous,
+                        observed,
+                        elapsedMillis
+                );
+
+                lastPlayerState = observed;
+                if (significantChange && eventListener != null) {
+                    listener = eventListener;
+                    eventStatus = observed;
+                }
             }
+
+            if (listener != null) {
+                try {
+                    listener.onStatusChange(eventStatus);
+                } catch (Throwable error) {
+                    log.error(error, "Video player status listener failed");
+                }
+            }
+        } catch (NoVideoLoadedException e) {
+            log.warn("No video is currently loaded");
+        } catch (Throwable error) {
+            log.error(error, "Failed to poll video player status");
         }
     }
 
