@@ -7,9 +7,10 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum Command {
 
-    JOIN_ROOM((byte) 0x1),
-    CONNECT((byte) 0x2),
-    UPDATE_STATE((byte) 0x3),
+    CONNECT((byte) 0x1),
+    UPDATE_STATE((byte) 0x2),
+    JOIN_ROOM((byte) 0x3),
+    LEAVE_ROOM((byte) 0x4),
     ;
 
     private final byte code;
