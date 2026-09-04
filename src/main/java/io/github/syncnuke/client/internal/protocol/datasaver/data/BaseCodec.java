@@ -21,6 +21,7 @@ public class BaseCodec implements Codec<BaseData> {
         return switch (value.getCommand()) {
             case UPDATE_STATE -> encodeUpdateState((StateData) value);
             case JOIN_ROOM -> encodeJoinRoom((JoinData) value);
+            case CONNECT -> throw new IllegalArgumentException("CONNECT is a server-only command");
         };
     }
 
@@ -34,13 +35,19 @@ public class BaseCodec implements Codec<BaseData> {
     }
 
     private byte[] encodeJoinRoom(JoinData value) {
+        byte[] username = value.getUsername().getBytes(StandardCharsets.UTF_8);
         byte[] room = value.getRoom().getBytes(StandardCharsets.UTF_8);
+        if (username.length > 0xffff) {
+            throw new IllegalArgumentException("Username is too long");
+        }
         if (room.length > 0xffff) {
             throw new IllegalArgumentException("Room name is too long");
         }
-        return ByteBuffer.allocate(3 + room.length)
+        return ByteBuffer.allocate(5 + username.length + room.length)
                 .order(ByteOrder.BIG_ENDIAN)
                 .put(Command.JOIN_ROOM.getCode())
+                .putShort((short) username.length)
+                .put(username)
                 .putShort((short) room.length)
                 .put(room)
                 .array();
@@ -55,6 +62,7 @@ public class BaseCodec implements Codec<BaseData> {
         return switch (Command.fromCode((byte) code)) {
             case UPDATE_STATE -> decodeUpdateState(in);
             case JOIN_ROOM -> decodeJoinRoom(in);
+            case CONNECT -> decodeConnect(in);
         };
     }
 
@@ -80,12 +88,24 @@ public class BaseCodec implements Codec<BaseData> {
     }
 
     private JoinData decodeJoinRoom(InputStream in) throws IOException {
-        byte[] lengthBytes = readBytes(in, Short.BYTES);
-        int roomLength = ByteBuffer.wrap(lengthBytes)
+        String username = decodeString(in);
+        String room = decodeString(in);
+        return new JoinData(Command.JOIN_ROOM, username, room);
+    }
+
+    private ConnectData decodeConnect(InputStream in) throws IOException {
+        String host = decodeString(in);
+        int port = ByteBuffer.wrap(readBytes(in, Short.BYTES))
                 .order(ByteOrder.BIG_ENDIAN)
                 .getShort() & 0xffff;
-        String room = new String(readBytes(in, roomLength), StandardCharsets.UTF_8);
-        return new JoinData(Command.JOIN_ROOM, room);
+        return new ConnectData(host, port);
+    }
+
+    private static String decodeString(InputStream in) throws IOException {
+        int length = ByteBuffer.wrap(readBytes(in, Short.BYTES))
+                .order(ByteOrder.BIG_ENDIAN)
+                .getShort() & 0xffff;
+        return new String(readBytes(in, length), StandardCharsets.UTF_8);
     }
 
     @SuppressWarnings("SameParameterValue")

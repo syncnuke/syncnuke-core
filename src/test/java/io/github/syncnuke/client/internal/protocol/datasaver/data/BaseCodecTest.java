@@ -42,16 +42,31 @@ class BaseCodecTest {
 
     @Test
     void encodesAndDecodesRoomJoin() throws IOException {
-        JoinData message = new JoinData(Command.JOIN_ROOM, "røom");
+        JoinData message = new JoinData(Command.JOIN_ROOM, "usér", "røom");
 
         assertArrayEquals(
-                new byte[] {1, 0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'},
+                new byte[] {
+                        1,
+                        0, 5, 'u', 's', (byte) 0xc3, (byte) 0xa9, 'r',
+                        0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'
+                },
                 codec.encode(message)
         );
         assertEquals(
                 message,
                 codec.decode(new ByteArrayInputStream(codec.encode(message)))
         );
+    }
+
+    @Test
+    void decodesConnectionRedirect() throws IOException {
+        ConnectData message = new ConnectData("nøde.example", 65535);
+        byte[] encoded = new byte[] {
+                2, 0, 13, 'n', (byte) 0xc3, (byte) 0xb8, 'd', 'e', '.',
+                'e', 'x', 'a', 'm', 'p', 'l', 'e', (byte) 0xff, (byte) 0xff
+        };
+
+        assertEquals(message, codec.decode(new ByteArrayInputStream(encoded)));
     }
 
     private static byte[] concatenate(byte[] first, byte[] second) {

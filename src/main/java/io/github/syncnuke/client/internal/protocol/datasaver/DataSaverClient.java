@@ -1,17 +1,12 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
 import io.github.syncnuke.client.SyncClient;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseCodec;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.StateData;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.BaseData;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.JoinData;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.Command;
-import io.github.syncnuke.client.internal.protocol.datasaver.data.State;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.TcpClient;
-import io.github.syncnuke.player.internal.PlayerManager;
+import io.github.syncnuke.client.internal.protocol.datasaver.data.*;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
+import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +19,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private static final int DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS = 10000;
 
     private final NetClient<BaseData> netClient;
+    private volatile String username;
+    private volatile String room;
 
     private volatile PlayerState serverState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
@@ -51,18 +48,34 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     public void login(String username, String room) {
-        send(new JoinData(Command.JOIN_ROOM, Objects.requireNonNull(room, "room")));
+        this.username = Objects.requireNonNull(username, "username");
+        this.room = Objects.requireNonNull(room, "room");
+        joinRoom();
     }
 
     @Override
     protected void handleResponse(BaseData data) {
         try {
             Command command = Objects.requireNonNull(data.getCommand());
-            if (command == Command.UPDATE_STATE) {
-                handleStateUpdate((StateData) data);
+            switch (command) {
+                case UPDATE_STATE -> handleStateUpdate((StateData) data);
+                case CONNECT -> handleConnect((ConnectData) data);
+                case JOIN_ROOM -> log.warn("Ignoring unexpected JOIN_ROOM response");
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
+        }
+    }
+
+    private void handleConnect(ConnectData data) {
+        log.info("Redirecting to {}:{}", data.getHost(), data.getPort());
+        netClient.connect(data.getHost(), data.getPort(), new BaseCodec());
+        joinRoom();
+    }
+
+    private void joinRoom() {
+        if (username != null && room != null) {
+            send(new JoinData(Command.JOIN_ROOM, username, room));
         }
     }
 

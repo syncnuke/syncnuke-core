@@ -8,6 +8,7 @@ import lombok.Data;
 public class JoinData implements BaseData {
 
     private Command command;
+    private String username;
     private String room;
 
 }
