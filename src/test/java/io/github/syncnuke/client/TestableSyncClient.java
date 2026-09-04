@@ -30,6 +30,11 @@ final class TestableSyncClient extends SyncClient<Object> {
     }
 
     @Override
+    public RoomInfo getRoomInfo() {
+        throw new UnsupportedOperationException("Should never be accessed during SyncClient testing");
+    }
+
+    @Override
     protected void handleResponse(Object data) {
         if (data instanceof PlayerState) {
             getPlayer().updateStatus((PlayerState) data);

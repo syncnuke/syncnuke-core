@@ -82,6 +82,8 @@ public abstract class SyncClient<T> implements AutoCloseable {
 
     public abstract void login(String username, String room);
 
+    public abstract RoomInfo getRoomInfo();
+
     public abstract void onStatusChange(PlayerState status);
 
     /**

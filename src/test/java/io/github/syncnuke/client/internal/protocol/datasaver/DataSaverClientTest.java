@@ -16,6 +16,8 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -106,6 +108,25 @@ class DataSaverClientTest {
         assertEquals(Command.JOIN_ROOM, messageCaptor.getValue().getCommand());
         assertEquals("user", messageCaptor.getValue().getUsername());
         assertEquals("room", messageCaptor.getValue().getRoom());
+    }
+
+    @Test
+    void roomInfoTracksJoinsAndLeaves() {
+        client.login("first", "room");
+        client.handleResponse(new JoinData(Command.JOIN_ROOM, "second", "room"));
+
+        assertEquals("room", client.getRoomInfo().getRoom());
+        assertEquals(
+                Arrays.asList("first", "second"),
+                client.getRoomInfo().getUsers()
+        );
+
+        client.handleResponse(new LeaveData("second", "room"));
+
+        assertEquals(
+                Collections.singletonList("first"),
+                client.getRoomInfo().getUsers()
+        );
     }
 
     @Test

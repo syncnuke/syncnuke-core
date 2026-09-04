@@ -21,7 +21,9 @@ public class BaseCodec implements Codec<BaseData> {
         return switch (value.getCommand()) {
             case UPDATE_STATE -> encodeUpdateState((StateData) value);
             case JOIN_ROOM -> encodeJoinRoom((JoinData) value);
-            case CONNECT -> throw new IllegalArgumentException("CONNECT is a server-only command");
+            case CONNECT, LEAVE_ROOM -> throw new IllegalArgumentException(
+                    value.getCommand() + " is a server-only command"
+            );
         };
     }
 
@@ -60,9 +62,10 @@ public class BaseCodec implements Codec<BaseData> {
             throw new IOException("End of stream reached");
         }
         return switch (Command.fromCode((byte) code)) {
+            case CONNECT -> decodeConnect(in);
             case UPDATE_STATE -> decodeUpdateState(in);
             case JOIN_ROOM -> decodeJoinRoom(in);
-            case CONNECT -> decodeConnect(in);
+            case LEAVE_ROOM -> decodeLeaveRoom(in);
         };
     }
 
@@ -99,6 +102,10 @@ public class BaseCodec implements Codec<BaseData> {
                 .order(ByteOrder.BIG_ENDIAN)
                 .getShort() & 0xffff;
         return new ConnectData(host, port);
+    }
+
+    private LeaveData decodeLeaveRoom(InputStream in) throws IOException {
+        return new LeaveData(decodeString(in), decodeString(in));
     }
 
     private static String decodeString(InputStream in) throws IOException {

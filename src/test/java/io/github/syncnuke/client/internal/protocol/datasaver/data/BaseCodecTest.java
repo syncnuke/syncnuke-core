@@ -69,6 +69,18 @@ class BaseCodecTest {
         assertEquals(message, codec.decode(new ByteArrayInputStream(encoded)));
     }
 
+    @Test
+    void decodesRoomLeave() throws IOException {
+        LeaveData message = new LeaveData("usér", "røom");
+        byte[] encoded = new byte[] {
+                4,
+                0, 5, 'u', 's', (byte) 0xc3, (byte) 0xa9, 'r',
+                0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'
+        };
+
+        assertEquals(message, codec.decode(new ByteArrayInputStream(encoded)));
+    }
+
     private static byte[] concatenate(byte[] first, byte[] second) {
         byte[] result = new byte[first.length + second.length];
         System.arraycopy(first, 0, result, 0, first.length);

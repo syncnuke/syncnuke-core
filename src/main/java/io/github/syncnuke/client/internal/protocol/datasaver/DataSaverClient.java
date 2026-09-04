@@ -1,5 +1,6 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
+import io.github.syncnuke.client.RoomInfo;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.TcpClient;
@@ -11,6 +12,9 @@ import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 @Slf4j
@@ -21,6 +25,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private final NetClient<BaseData> netClient;
     private volatile String username;
     private volatile String room;
+    private volatile List<String> users = Collections.emptyList();
 
     private volatile PlayerState serverState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
@@ -47,10 +52,16 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     @Override
-    public void login(String username, String room) {
+    public synchronized void login(String username, String room) {
         this.username = Objects.requireNonNull(username, "username");
         this.room = Objects.requireNonNull(room, "room");
+        users = Collections.singletonList(username);
         joinRoom();
+    }
+
+    @Override
+    public synchronized RoomInfo getRoomInfo() {
+        return new RoomInfo(room, new ArrayList<>(users));
     }
 
     @Override
@@ -60,7 +71,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
             switch (command) {
                 case UPDATE_STATE -> handleStateUpdate((StateData) data);
                 case CONNECT -> handleConnect((ConnectData) data);
-                case JOIN_ROOM -> log.warn("Ignoring unexpected JOIN_ROOM response");
+                case JOIN_ROOM -> handleJoin((JoinData) data);
+                case LEAVE_ROOM -> handleLeave((LeaveData) data);
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
@@ -69,8 +81,27 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void handleConnect(ConnectData data) {
         log.info("Redirecting to {}:{}", data.getHost(), data.getPort());
+        if (username != null) {
+            users = Collections.singletonList(username);
+        }
         netClient.connect(data.getHost(), data.getPort(), new BaseCodec());
         joinRoom();
+    }
+
+    private synchronized void handleJoin(JoinData data) {
+        if (Objects.equals(room, data.getRoom())) {
+            List<String> updated = new ArrayList<>(users);
+            updated.add(data.getUsername());
+            users = updated;
+        }
+    }
+
+    private synchronized void handleLeave(LeaveData data) {
+        if (Objects.equals(room, data.getRoom())) {
+            List<String> updated = new ArrayList<>(users);
+            updated.remove(data.getUsername());
+            users = updated;
+        }
     }
 
     private void joinRoom() {
