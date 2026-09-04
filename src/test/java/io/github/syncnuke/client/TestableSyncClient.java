@@ -25,7 +25,7 @@ final class TestableSyncClient extends SyncClient<Object> {
     }
 
     @Override
-    public void login(String username, String room) {
+    public void login(String username, String room, String password) {
         throw new UnsupportedOperationException("Should never be accessed during SyncClient testing");
     }
 

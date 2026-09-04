@@ -80,7 +80,7 @@ public abstract class SyncClient<T> implements AutoCloseable {
         }, keepAliveInterval, keepAliveInterval, TimeUnit.MILLISECONDS);
     }
 
-    public abstract void login(String username, String room);
+    public abstract void login(String username, String room, String password);
 
     public abstract RoomInfo getRoomInfo();
 

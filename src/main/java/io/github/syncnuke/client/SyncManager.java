@@ -60,7 +60,7 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
         return instance;
     }
 
-    public void start(String protocol, String server, int port, String username, String room) {
+    public void start(String protocol, String server, int port, String username, String room, String password) {
         synchronized (lock) {
             if (syncClient != null || starting) {
                 return;
@@ -76,7 +76,7 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
                         port,
                         playerManager
                 );
-                tmp.login(username, room);
+                tmp.login(username, room, password);
 
                 synchronized (lock) {
                     syncClient = tmp;

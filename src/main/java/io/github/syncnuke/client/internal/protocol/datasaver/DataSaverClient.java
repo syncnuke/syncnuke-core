@@ -25,6 +25,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private final NetClient<BaseData> netClient;
     private volatile String username;
     private volatile String room;
+    private volatile String password;
     private volatile List<String> users = Collections.emptyList();
 
     private volatile PlayerState serverState;
@@ -52,9 +53,10 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     @Override
-    public synchronized void login(String username, String room) {
+    public synchronized void login(String username, String room, String password) {
         this.username = Objects.requireNonNull(username, "username");
         this.room = Objects.requireNonNull(room, "room");
+        this.password = password;
         users = Collections.singletonList(username);
         joinRoom();
     }
@@ -106,7 +108,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void joinRoom() {
         if (username != null && room != null) {
-            send(new JoinData(Command.JOIN_ROOM, username, room));
+            send(new JoinData(username, room, password));
         }
     }
 
@@ -210,5 +212,17 @@ public class DataSaverClient extends SyncClient<BaseData> {
         expectation.setLastUpdateTime(getCurrentTime());
         serverState = expectation;
     }
+
+    @Override
+    public synchronized void close() {
+        try {
+            if (username != null && room != null) {
+                send(new LeaveData(username, room, password));
+            }
+        } finally {
+            super.close();
+        }
+    }
+
 
 }

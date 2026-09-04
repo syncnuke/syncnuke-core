@@ -82,8 +82,8 @@ class DataSaverClientTest {
     }
 
     @Test
-    void loginJoinsRoom() {
-        client.login("user", "room");
+    void loginJoinsRoomWithPassword() {
+        client.login("user", "room", "password");
 
         ArgumentCaptor<JoinData> messageCaptor =
                 ArgumentCaptor.forClass(JoinData.class);
@@ -92,11 +92,12 @@ class DataSaverClientTest {
         assertEquals(Command.JOIN_ROOM, message.getCommand());
         assertEquals("user", message.getUsername());
         assertEquals("room", message.getRoom());
+        assertEquals("password", message.getPassword());
     }
 
     @Test
-    void connectRedirectReconnectsAndRejoinsRoom() {
-        client.login("user", "room");
+    void connectRedirectReconnectsAndRejoinsRoomWithPassword() {
+        client.login("user", "room", "password");
         clearInvocations(netClient);
 
         client.handleResponse(new ConnectData("next.example", 27032));
@@ -108,12 +109,28 @@ class DataSaverClientTest {
         assertEquals(Command.JOIN_ROOM, messageCaptor.getValue().getCommand());
         assertEquals("user", messageCaptor.getValue().getUsername());
         assertEquals("room", messageCaptor.getValue().getRoom());
+        assertEquals("password", messageCaptor.getValue().getPassword());
+    }
+
+    @Test
+    void closeLeavesRoomWithPassword() {
+        client.login("user", "room", "password");
+        clearInvocations(netClient);
+
+        client.close();
+
+        ArgumentCaptor<LeaveData> messageCaptor =
+                ArgumentCaptor.forClass(LeaveData.class);
+        verify(netClient).send(messageCaptor.capture());
+        assertEquals("user", messageCaptor.getValue().getUsername());
+        assertEquals("room", messageCaptor.getValue().getRoom());
+        assertEquals("password", messageCaptor.getValue().getPassword());
     }
 
     @Test
     void roomInfoTracksJoinsAndLeaves() {
-        client.login("first", "room");
-        client.handleResponse(new JoinData(Command.JOIN_ROOM, "second", "room"));
+        client.login("first", "room", null);
+        client.handleResponse(new JoinData("second", "room", null));
 
         assertEquals("room", client.getRoomInfo().getRoom());
         assertEquals(
@@ -121,7 +138,7 @@ class DataSaverClientTest {
                 client.getRoomInfo().getUsers()
         );
 
-        client.handleResponse(new LeaveData("second", "room"));
+        client.handleResponse(new LeaveData("second", "room", null));
 
         assertEquals(
                 Collections.singletonList("first"),

@@ -21,7 +21,8 @@ public class BaseCodec implements Codec<BaseData> {
         return switch (value.getCommand()) {
             case UPDATE_STATE -> encodeUpdateState((StateData) value);
             case JOIN_ROOM -> encodeJoinRoom((JoinData) value);
-            case CONNECT, LEAVE_ROOM -> throw new IllegalArgumentException(
+            case LEAVE_ROOM -> encodeLeaveRoom((LeaveData) value);
+            case CONNECT -> throw new IllegalArgumentException(
                     value.getCommand() + " is a server-only command"
             );
         };
@@ -37,21 +38,62 @@ public class BaseCodec implements Codec<BaseData> {
     }
 
     private byte[] encodeJoinRoom(JoinData value) {
-        byte[] username = value.getUsername().getBytes(StandardCharsets.UTF_8);
-        byte[] room = value.getRoom().getBytes(StandardCharsets.UTF_8);
+        return encodeRoomCommand(
+                Command.JOIN_ROOM,
+                value.getUsername(),
+                value.getRoom(),
+                value.getPassword()
+        );
+    }
+
+    private byte[] encodeLeaveRoom(LeaveData value) {
+        return encodeRoomCommand(
+                Command.LEAVE_ROOM,
+                value.getUsername(),
+                value.getRoom(),
+                value.getPassword()
+        );
+    }
+
+    private byte[] encodeRoomCommand(
+            Command command,
+            String usernameStr,
+            String roomStr,
+            String passwordStr
+    ) {
+        byte[] username = usernameStr.getBytes(StandardCharsets.UTF_8);
+        byte[] room = roomStr.getBytes(StandardCharsets.UTF_8);
         if (username.length > 0xffff) {
             throw new IllegalArgumentException("Username is too long");
         }
         if (room.length > 0xffff) {
             throw new IllegalArgumentException("Room name is too long");
         }
-        return ByteBuffer.allocate(5 + username.length + room.length)
+        byte[] password = encodeOptionalString(passwordStr);
+        return ByteBuffer.allocate(5 + username.length + room.length + password.length)
                 .order(ByteOrder.BIG_ENDIAN)
-                .put(Command.JOIN_ROOM.getCode())
+                .put(command.getCode())
                 .putShort((short) username.length)
                 .put(username)
                 .putShort((short) room.length)
                 .put(room)
+                .put(password)
+                .array();
+    }
+
+    private static byte[] encodeOptionalString(String value) {
+        if (value == null) {
+            return new byte[] { 0 };
+        }
+        byte[] encoded = value.getBytes(StandardCharsets.UTF_8);
+        if (encoded.length > 0xffff) {
+            throw new IllegalArgumentException("String is too long");
+        }
+        return ByteBuffer.allocate(3 + encoded.length)
+                .order(ByteOrder.BIG_ENDIAN)
+                .put((byte) 1)
+                .putShort((short) encoded.length)
+                .put(encoded)
                 .array();
     }
 
@@ -93,7 +135,8 @@ public class BaseCodec implements Codec<BaseData> {
     private JoinData decodeJoinRoom(InputStream in) throws IOException {
         String username = decodeString(in);
         String room = decodeString(in);
-        return new JoinData(Command.JOIN_ROOM, username, room);
+        String ignoredPassword = decodeOptionalString(in);
+        return new JoinData(username, room, null);
     }
 
     private ConnectData decodeConnect(InputStream in) throws IOException {
@@ -105,7 +148,10 @@ public class BaseCodec implements Codec<BaseData> {
     }
 
     private LeaveData decodeLeaveRoom(InputStream in) throws IOException {
-        return new LeaveData(decodeString(in), decodeString(in));
+        String username = decodeString(in);
+        String room = decodeString(in);
+        String ignoredPassword = decodeOptionalString(in);
+        return new LeaveData(username, room, null);
     }
 
     private static String decodeString(InputStream in) throws IOException {
@@ -113,6 +159,17 @@ public class BaseCodec implements Codec<BaseData> {
                 .order(ByteOrder.BIG_ENDIAN)
                 .getShort() & 0xffff;
         return new String(readBytes(in, length), StandardCharsets.UTF_8);
+    }
+
+    private static String decodeOptionalString(InputStream in) throws IOException {
+        int present = readBytes(in, 1)[0] & 0xff;
+        if (present == 0) {
+            return null;
+        }
+        if (present != 1) {
+            throw new IOException("Invalid optional string marker: " + present);
+        }
+        return decodeString(in);
     }
 
     @SuppressWarnings("SameParameterValue")

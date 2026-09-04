@@ -42,13 +42,14 @@ class BaseCodecTest {
 
     @Test
     void encodesAndDecodesRoomJoin() throws IOException {
-        JoinData message = new JoinData(Command.JOIN_ROOM, "usér", "røom");
+        JoinData message = new JoinData("usér", "røom", null);
 
         assertArrayEquals(
                 new byte[] {
-                        1,
+                        3,
                         0, 5, 'u', 's', (byte) 0xc3, (byte) 0xa9, 'r',
-                        0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'
+                        0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm',
+                        0
                 },
                 codec.encode(message)
         );
@@ -62,7 +63,7 @@ class BaseCodecTest {
     void decodesConnectionRedirect() throws IOException {
         ConnectData message = new ConnectData("nøde.example", 65535);
         byte[] encoded = new byte[] {
-                2, 0, 13, 'n', (byte) 0xc3, (byte) 0xb8, 'd', 'e', '.',
+                1, 0, 13, 'n', (byte) 0xc3, (byte) 0xb8, 'd', 'e', '.',
                 'e', 'x', 'a', 'm', 'p', 'l', 'e', (byte) 0xff, (byte) 0xff
         };
 
@@ -70,15 +71,56 @@ class BaseCodecTest {
     }
 
     @Test
-    void decodesRoomLeave() throws IOException {
-        LeaveData message = new LeaveData("usér", "røom");
-        byte[] encoded = new byte[] {
-                4,
-                0, 5, 'u', 's', (byte) 0xc3, (byte) 0xa9, 'r',
-                0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm'
-        };
+    void encodesAndDecodesRoomLeaveWithPassword() throws IOException {
+        LeaveData message = new LeaveData("usér", "røom", "pass");
+        LeaveData expected = new LeaveData("usér", "røom", null);
 
-        assertEquals(message, codec.decode(new ByteArrayInputStream(encoded)));
+        assertArrayEquals(
+                new byte[] {
+                        4,
+                        0, 5, 'u', 's', (byte) 0xc3, (byte) 0xa9, 'r',
+                        0, 5, 'r', (byte) 0xc3, (byte) 0xb8, 'o', 'm',
+                        1, 0, 4, 'p', 'a', 's', 's'
+                },
+                codec.encode(message)
+        );
+        assertEquals(expected, codec.decode(new ByteArrayInputStream(codec.encode(message))));
+    }
+
+    @Test
+    void encodesPasswordForClientJoinAndConsumesNullPasswordFromServerJoin()
+            throws IOException {
+        JoinData sent = new JoinData("user", "room", "pass");
+        StateData following = new StateData(
+                Command.UPDATE_STATE,
+                State.PAUSED,
+                10.0,
+                1.0
+        );
+        byte[] received = new byte[] {
+                3,
+                0, 4, 'p', 'e', 'e', 'r',
+                0, 4, 'r', 'o', 'o', 'm',
+                0
+        };
+        InputStream stream = new ByteArrayInputStream(
+                concatenate(received, codec.encode(following))
+        );
+
+        assertArrayEquals(
+                new byte[] {
+                        3,
+                        0, 4, 'u', 's', 'e', 'r',
+                        0, 4, 'r', 'o', 'o', 'm',
+                        1, 0, 4, 'p', 'a', 's', 's'
+                },
+                codec.encode(sent)
+        );
+        assertEquals(
+                new JoinData("peer", "room", null),
+                codec.decode(stream)
+        );
+        assertEquals(following, codec.decode(stream));
     }
 
     private static byte[] concatenate(byte[] first, byte[] second) {
