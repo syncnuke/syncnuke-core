@@ -152,12 +152,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     protected void sendKeepAlive() {
-        PlayerState state = getPlayer().getStatus();
-        if (isSignificantChange(state)) {
-            sendState(getPlayer().getStatus());
-        } else {
-            sendPing();
-        }
+        sendState(expectedState.advance(getCurrentTime()));
     }
 
     private void sendPing() {
@@ -185,6 +180,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             send(message);
+            updateServerState(status);
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
@@ -196,7 +192,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
      * @param localStatus the status reported by the local video player
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
-    private boolean isSignificantChange(PlayerState localStatus) {
+    private synchronized boolean isSignificantChange(PlayerState localStatus) {
         Objects.requireNonNull(localStatus, "localStatus");
         if (expectedState == null) {
             return true;
@@ -237,7 +233,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     /**
      * Records playback state expected on the server-side.
      */
-    private void updateServerState(PlayerState serverStatus) {
+    private synchronized void updateServerState(PlayerState serverStatus) {
         PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
         expectation.setLastUpdateTime(getCurrentTime());
         expectedState = expectation;
