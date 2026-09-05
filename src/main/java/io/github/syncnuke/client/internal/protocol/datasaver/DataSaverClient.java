@@ -28,7 +28,13 @@ public class DataSaverClient extends SyncClient<BaseData> {
     private volatile String password;
     private volatile List<String> users = Collections.emptyList();
 
-    private volatile PlayerState serverState;
+    /**
+     * Represents the playback state, as we believe would be seen from the server's perspective.
+     * Needed for filtering updates before sending to the server - but should not affect processing of received messages.
+     * This is separate from the {@link io.github.syncnuke.player.VideoPlayer}'s state, which represents
+     * the local playback state.
+     */
+    private volatile PlayerState expectedState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
@@ -159,6 +165,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             send(message);
+            // Temporarily update server state until we hear back from the server
+            updateServerState(status);
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
@@ -172,22 +180,22 @@ public class DataSaverClient extends SyncClient<BaseData> {
      */
     private boolean isSignificantChange(PlayerState localStatus) {
         Objects.requireNonNull(localStatus, "localStatus");
-        if (serverState == null) {
+        if (expectedState == null) {
             return true;
         }
 
-        if (localStatus.getPlaybackState() != serverState.getPlaybackState()) {
+        if (localStatus.getPlaybackState() != expectedState.getPlaybackState()) {
             // Status changed
             return true;
         }
 
-        if (Math.abs(localStatus.getPosition() - serverState.getPosition()) <= MIN_PROG_CHANGE) {
+        if (Math.abs(localStatus.getPosition() - expectedState.getPosition()) <= MIN_PROG_CHANGE) {
             // Progress change is not significant enough
             return false;
         }
 
         long currentTime = getCurrentTime();
-        long timeDiff = currentTime - serverState.getLastUpdateTime();
+        long timeDiff = currentTime - expectedState.getLastUpdateTime();
 
         boolean paused = localStatus.getPlaybackState() == PlaybackState.PAUSED;
         double playbackSpeed = localStatus.getPlaybackSpeed();
@@ -201,7 +209,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
             // Prevent division by zero
             return false;
         }
-        double positionDiff = Math.abs(localStatus.getPosition() - serverState.getPosition()) * 1000; // in milliseconds
+        double positionDiff = Math.abs(localStatus.getPosition() - expectedState.getPosition()) * 1000; // in milliseconds
         double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
 
         // Progress change does not match expected change based on playback speed
@@ -209,12 +217,12 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     /**
-     * Records playback state decoded from an inbound server command.
+     * Records playback state expected on the server-side.
      */
     private void updateServerState(PlayerState serverStatus) {
         PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
         expectation.setLastUpdateTime(getCurrentTime());
-        serverState = expectation;
+        expectedState = expectation;
     }
 
     @Override
