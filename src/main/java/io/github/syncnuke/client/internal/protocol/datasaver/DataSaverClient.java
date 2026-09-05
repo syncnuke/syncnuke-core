@@ -91,6 +91,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     private synchronized void handleJoin(JoinData data) {
+        log.debug("Command: {} User: {} Room: {}", data.getCommand(), data.getUsername(), data.getRoom());
+        log.info("{} joined the room.", data.getUsername());
         if (Objects.equals(room, data.getRoom())) {
             List<String> updated = new ArrayList<>(users);
             updated.add(data.getUsername());
@@ -99,6 +101,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     private synchronized void handleLeave(LeaveData data) {
+        log.debug("Command: {} User: {} Room: {}", data.getCommand(), data.getUsername(), data.getRoom());
+        log.info("{} left the room.", data.getUsername());
         if (Objects.equals(room, data.getRoom())) {
             List<String> updated = new ArrayList<>(users);
             updated.remove(data.getUsername());
