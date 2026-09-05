@@ -214,6 +214,16 @@ class DataSaverClientTest {
     }
 
     @Test
+    void backwardSeekCannotMasqueradeAsForwardProgression() {
+        recordServerState(PlaybackState.PLAYING, 30.0, 1.0);
+        currentTime.addAndGet(10000);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
+
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
     void changeWithExpectedAdvanceTooSmallIsNotSent() {
         recordServerState(PlaybackState.PLAYING, 0.0, 1.0);
         currentTime.incrementAndGet();

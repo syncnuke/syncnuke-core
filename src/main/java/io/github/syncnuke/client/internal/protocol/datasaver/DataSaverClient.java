@@ -207,8 +207,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
             // Prevent division by zero
             return false;
         }
-        double positionDiff = Math.abs(localStatus.getPosition() - expectedState.getPosition()) * 1000; // in milliseconds
-        double relativeError = Math.abs(positionDiff - expectedAdvance) / expectedAdvance;
+        double actualAdvance = (localStatus.getPosition() - expectedState.getPosition()) * 1000; // in milliseconds
+        double relativeError = Math.abs(actualAdvance - expectedAdvance) / expectedAdvance;
 
         // Progress change does not match expected change based on playback speed
         return relativeError > DRIFT_THRESHOLD;
