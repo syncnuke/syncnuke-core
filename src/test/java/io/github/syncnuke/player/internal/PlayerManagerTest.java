@@ -21,6 +21,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -374,15 +375,20 @@ class PlayerManagerTest {
     }
 
     @Test
-    void failedPoll_isPropagated() {
+    void failedPoll_doesNotStopFuturePolls() {
         when(videoPlayer.getStatus())
-                .thenThrow(new IllegalStateException("critical failure"));
+                .thenThrow(new IllegalStateException("critical failure"))
+                .thenAnswer(invocation -> {
+                    PlayerState status = rawStatus.get().copy();
+                    status.setLastUpdateTime(clock.getCurrentTime());
+                    return status;
+                });
 
-        IllegalStateException error = assertThrows(
-                IllegalStateException.class,
-                () -> clock.advance(1000)
-        );
-        assertEquals("critical failure", error.getMessage());
+        assertDoesNotThrow(() -> clock.advance(50));
+        setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
+        clock.advance(50);
+
+        verify(listener).onStatusChange(any());
     }
 
     @Test

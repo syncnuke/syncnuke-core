@@ -3,6 +3,8 @@ package io.github.syncnuke.client;
 import io.github.syncnuke.client.internal.protocol.datasaver.DataSaverClient;
 import io.github.syncnuke.player.internal.PlayerManager;
 
+import java.util.Locale;
+
 /**
  * Factory for creating SyncClient instances based on the specified protocol.
  */
@@ -19,7 +21,7 @@ class SyncClientFactory {
      * @throws IllegalArgumentException if the protocol is not supported
      */
     public static SyncClient<?> createClient(String protocol, String host, int port, PlayerManager videoPlayer) {
-        switch (protocol.toLowerCase()) {
+        switch (protocol.toLowerCase(Locale.ROOT)) {
             case "datasaver":
                 return new DataSaverClient(host, port, videoPlayer);
             default:

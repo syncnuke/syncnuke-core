@@ -8,7 +8,8 @@ import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.ChannelInputShutdownReadComplete;
 import io.netty.channel.socket.nio.NioDatagramChannel;
 import io.netty.handler.codec.quic.QuicChannel;
@@ -49,7 +50,7 @@ public class QuicClient<T> implements NetClient<T> {
     private static final long INITIAL_MAX_STREAM_DATA = 1_000_000;
     private static final int MAX_PENDING_CHUNKS = 64;
 
-    private final NioEventLoopGroup eventLoopGroup = new NioEventLoopGroup(1);
+    private final MultiThreadIoEventLoopGroup eventLoopGroup = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
     private final ExecutorService decoderExecutor = Executors.newSingleThreadExecutor();
     private final Set<NetListener<T>> listeners = new CopyOnWriteArraySet<>();
 

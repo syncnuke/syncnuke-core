@@ -7,8 +7,7 @@ import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
-import org.tinylog.Logger;
-import org.tinylog.TaggedLogger;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
@@ -19,9 +18,9 @@ import java.util.concurrent.TimeUnit;
  * status observed through polling. Filters out excessive state updates,
  * including seek drift of up to {@value #POSITION_DRIFT_TOLERANCE_SECONDS} seconds.
  */
+@Slf4j
 public final class PlayerManager implements AutoCloseable {
 
-    private static final TaggedLogger log = Logger.tag("PlayerManager");
     private static final long DEFAULT_POLL_INTERVAL_MILLIS = 250;
     private static final double POSITION_DRIFT_TOLERANCE_SECONDS = 0.2;
 
@@ -173,14 +172,14 @@ public final class PlayerManager implements AutoCloseable {
                 try {
                     listener.onStatusChange(eventStatus);
                 } catch (Throwable error) {
-                    log.error(error, "Video player status listener failed");
+                    log.error("Video player status listener failed", error);
                 }
             }
         } catch (NoVideoLoadedException e) {
             log.warn("No video is currently loaded");
         } catch (Throwable error) {
             log.warn("Failed to poll video player status");
-            log.debug(error);
+            log.debug("Player status polling failure", error);
         }
     }
 
@@ -261,7 +260,7 @@ public final class PlayerManager implements AutoCloseable {
         try {
             player.close();
         } catch (Exception error) {
-            log.error(error, "Error closing previous video player");
+            log.error("Error closing previous video player", error);
         }
     }
 

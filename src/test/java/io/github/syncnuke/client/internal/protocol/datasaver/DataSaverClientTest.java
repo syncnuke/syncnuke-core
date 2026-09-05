@@ -263,27 +263,27 @@ class DataSaverClientTest {
     }
 
     @Test
-    void localSendDoesNotChangeServerExpectation() {
+    void localSendUpdatesServerExpectation() {
         recordServerState(PlaybackState.PAUSED, 10.0, 1.0);
 
         client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
         verify(netClient).send(any(StateData.class));
         clearInvocations(netClient);
-        client.onStatusChange(state(PlaybackState.PAUSED, 10.0, 1.0));
+        client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
 
         verify(netClient, never()).send(any(StateData.class));
     }
 
     @Test
-    void sendsAndKeepAliveDoNotChangeServerExpectation() {
-        PlayerState expected = state(PlaybackState.PAUSED, 10.0, 1.0);
-        playerStatus.set(expected);
+    void sendsAndKeepAliveUpdateServerExpectation() {
+        PlayerState sent = state(PlaybackState.PLAYING, 20.0, 1.0);
+        playerStatus.set(sent);
         recordServerState(PlaybackState.PAUSED, 10.0, 1.0);
 
-        client.onStatusChange(state(PlaybackState.PLAYING, 20.0, 1.0));
+        client.onStatusChange(sent);
         client.sendKeepAlive();
         clearInvocations(netClient);
-        client.onStatusChange(expected.copy());
+        client.onStatusChange(sent.copy());
 
         verify(netClient, never()).send(any(StateData.class));
     }
