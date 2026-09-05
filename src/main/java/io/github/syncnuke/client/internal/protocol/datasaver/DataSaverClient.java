@@ -152,7 +152,12 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     protected void sendKeepAlive() {
-        sendState(getPlayer().getStatus());
+        PlayerState state = getPlayer().getStatus();
+        if (isSignificantChange(state)) {
+            sendState(getPlayer().getStatus());
+        } else {
+            sendPing();
+        }
     }
 
     private void sendPing() {
