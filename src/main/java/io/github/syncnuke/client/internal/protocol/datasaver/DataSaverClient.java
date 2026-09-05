@@ -3,7 +3,7 @@ package io.github.syncnuke.client.internal.protocol.datasaver;
 import io.github.syncnuke.client.RoomInfo;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.net.NetClient;
-import io.github.syncnuke.client.internal.net.TcpClient;
+import io.github.syncnuke.client.internal.net.QuicClient;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.*;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
@@ -43,7 +43,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     public DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer) {
-        this(host, port, keepAliveInterval, videoPlayer, new TcpClient<>(), new TimingServiceImpl());
+        this(host, port, keepAliveInterval, videoPlayer, new QuicClient<>(), new TimingServiceImpl());
     }
 
     DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer,
