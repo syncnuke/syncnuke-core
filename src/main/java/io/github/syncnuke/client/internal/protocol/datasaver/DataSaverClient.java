@@ -152,7 +152,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     protected void sendKeepAlive() {
-        sendPing();
+        sendState(expectedState.advance(getCurrentTime()));
     }
 
     private void sendPing() {
