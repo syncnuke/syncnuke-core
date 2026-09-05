@@ -19,7 +19,6 @@ public class BaseCodec implements Codec<BaseData> {
             return new byte[0];
         }
         return switch (value.getCommand()) {
-            case PING -> encodePing();
             case UPDATE_STATE -> encodeUpdateState((StateData) value);
             case JOIN_ROOM -> encodeJoinRoom((JoinData) value);
             case LEAVE_ROOM -> encodeLeaveRoom((LeaveData) value);
@@ -54,10 +53,6 @@ public class BaseCodec implements Codec<BaseData> {
                 value.getRoom(),
                 value.getPassword()
         );
-    }
-
-    private byte[] encodePing() {
-        return new byte[] { Command.PING.getCode() };
     }
 
     private byte[] encodeRoomCommand(
@@ -109,7 +104,6 @@ public class BaseCodec implements Codec<BaseData> {
             throw new IOException("End of stream reached");
         }
         return switch (Command.fromCode((byte) code)) {
-            case PING -> null;
             case CONNECT -> decodeConnect(in);
             case UPDATE_STATE -> decodeUpdateState(in);
             case JOIN_ROOM -> decodeJoinRoom(in);

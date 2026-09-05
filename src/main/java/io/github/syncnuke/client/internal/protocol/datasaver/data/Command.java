@@ -11,7 +11,6 @@ public enum Command {
     UPDATE_STATE((byte) 0x2),
     JOIN_ROOM((byte) 0x3),
     LEAVE_ROOM((byte) 0x4),
-    PING((byte) 0x5),
     ;
 
     private final byte code;
