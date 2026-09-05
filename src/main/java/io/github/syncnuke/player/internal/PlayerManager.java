@@ -179,7 +179,8 @@ public final class PlayerManager implements AutoCloseable {
         } catch (NoVideoLoadedException e) {
             log.warn("No video is currently loaded");
         } catch (Throwable error) {
-            log.error(error, "Failed to poll video player status");
+            log.error("Failed to poll video player status");
+            log.debug(error);
         }
     }
 
