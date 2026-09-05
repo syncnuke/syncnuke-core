@@ -81,6 +81,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
                 case CONNECT -> handleConnect((ConnectData) data);
                 case JOIN_ROOM -> handleJoin((JoinData) data);
                 case LEAVE_ROOM -> handleLeave((LeaveData) data);
+                case PING -> handlePing();
+                default -> log.warn("Received unknown command: {}", command);
             }
         } catch (Exception e) {
             log.error("Error processing server response: {}", e.getMessage());
@@ -116,6 +118,10 @@ public class DataSaverClient extends SyncClient<BaseData> {
         }
     }
 
+    private void handlePing() {
+        throw new IllegalStateException("Received unexpected ping from server");
+    }
+
     private void joinRoom() {
         if (username != null && room != null) {
             send(new JoinData(username, room, password));
@@ -147,6 +153,15 @@ public class DataSaverClient extends SyncClient<BaseData> {
     @Override
     protected void sendKeepAlive() {
         sendState(expectedState.advance(getCurrentTime()));
+    }
+
+    private void sendPing() {
+        try {
+            send(new PingData());
+            log.debug("Sent ping to server");
+        } catch (Exception e) {
+            log.error("Failed to send ping: {}", e.getMessage());
+        }
     }
 
     private State getState(PlayerState status) {
