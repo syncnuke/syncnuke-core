@@ -7,6 +7,7 @@ import io.github.syncnuke.client.internal.net.QuicClient;
 import io.github.syncnuke.client.internal.protocol.datasaver.data.*;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
+import io.github.syncnuke.player.data.PlayerStateUtils;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.service.TimingService;
 import io.github.syncnuke.service.TimingServiceImpl;
@@ -152,16 +153,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     protected void sendKeepAlive() {
-        sendState(expectedState.advance(getCurrentTime()));
-    }
-
-    private void sendPing() {
-        try {
-            send(new PingData());
-            log.debug("Sent ping to server");
-        } catch (Exception e) {
-            log.error("Failed to send ping: {}", e.getMessage());
-        }
+        sendState(PlayerStateUtils.advance(expectedState, getCurrentTime()));
     }
 
     private State getState(PlayerState status) {

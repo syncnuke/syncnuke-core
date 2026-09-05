@@ -31,18 +31,6 @@ public class PlayerState {
         this.lastUpdateTime = state.lastUpdateTime;
     }
 
-    /**
-     * Returns a copy of the predicted state of the player at the given time, based on the current state and playback speed.
-     */
-    public PlayerState advance(long currentTimeMillis) {
-        PlayerState predictedState = new PlayerState(this);
-        if (predictedState.playbackState == PlaybackState.PLAYING) {
-            double elapsedSeconds = (currentTimeMillis - predictedState.lastUpdateTime) / 1000.0;
-            predictedState.position += elapsedSeconds * predictedState.playbackSpeed;
-        }
-        return predictedState;
-    }
-
     public PlayerState copy() {
         return new PlayerState(this);
     }
