@@ -165,8 +165,6 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             send(message);
-            // Temporarily update server state until we hear back from the server
-            updateServerState(status);
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
