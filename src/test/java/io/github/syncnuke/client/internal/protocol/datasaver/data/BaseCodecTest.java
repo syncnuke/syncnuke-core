@@ -15,6 +15,15 @@ class BaseCodecTest {
     private final BaseCodec codec = new BaseCodec();
 
     @Test
+    void encodesAndDecodesPing() throws IOException {
+        assertArrayEquals(new byte[] { 5 }, codec.encode(new PingData()));
+        assertEquals(
+                Command.PING,
+                codec.decode(new ByteArrayInputStream(new byte[] { 5 })).getCommand()
+        );
+    }
+
+    @Test
     void decodesConsecutiveMessagesWithoutConsumingTheNextFrame() throws IOException {
         StateData first = new StateData(Command.UPDATE_STATE, State.PLAYING, 12.5, 1.5);
         StateData second = new StateData(Command.UPDATE_STATE, State.PAUSED, 42.25, 0.75);
