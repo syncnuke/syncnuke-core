@@ -111,7 +111,7 @@ publishing {
             pom {
                 name = 'SyncNuke Core'
                 description = project.description
-                url = 'https://github.com/if-shouldrs/syncnuke-core'
+                url = 'https://github.com/syncnuke/syncnuke-core'
 
                 licenses {
                     license {
@@ -125,14 +125,14 @@ publishing {
                     developer {
                         id = 'if-shouldrs'
                         name = 'SyncNuke maintainers'
-                        url = 'https://github.com/if-shouldrs'
+                        url = 'https://github.com/syncnuke'
                     }
                 }
 
                 scm {
-                    connection = 'scm:git:https://github.com/if-shouldrs/syncnuke-core.git'
-                    developerConnection = 'scm:git:ssh://git@github.com/if-shouldrs/syncnuke-core.git'
-                    url = 'https://github.com/if-shouldrs/syncnuke-core'
+                    connection = 'scm:git:https://github.com/syncnuke/syncnuke-core.git'
+                    developerConnection = 'scm:git:ssh://git@github.com/syncnuke/syncnuke-core.git'
+                    url = 'https://github.com/syncnuke/syncnuke-core'
                 }
             }
         }
