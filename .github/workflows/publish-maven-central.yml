@@ -18,6 +18,7 @@ jobs:
   publish:
     name: Build and publish
     runs-on: ubuntu-latest
+    environment: maven-central
 
     steps:
       - name: Checkout
@@ -88,7 +89,6 @@ jobs:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_CENTRAL_SIGNING_KEY }}
-          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_CENTRAL_SIGNING_PASSWORD }}
         run: ./gradlew publishAndReleaseToMavenCentral --no-daemon
 
       - name: Publishing skipped
