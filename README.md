@@ -85,8 +85,8 @@ Player integrations live in applications that depend on this library and impleme
 
 Current and planned projects include:
 
-* **SyncNuke Desktop** — connects SyncNuke to video players running on PC.
-* **[SyncNuke Android]([https://github.com/syncnuke/syncnuke-android](https://github.com/if-shouldrs/syncnuke-android))** — work-in-progress Just Player fork with SyncNuke support.
+* **[SyncNuke Desktop](https://github.com/if-shouldrs/syncnuke-desktop)** — connects SyncNuke to video players running on PC.
+* **[SyncNuke Android](https://github.com/if-shouldrs/syncnuke-android)** — work-in-progress Just Player fork with SyncNuke support.
 * **Browser extension player integration** — planned support for synchronizing browser-based video playback (not created).
 
 Note: All SyncNuke connections are established through SyncNuke Master Server, located at `master.syncnuke.com:65344`.
