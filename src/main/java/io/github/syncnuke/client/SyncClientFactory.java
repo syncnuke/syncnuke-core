@@ -14,19 +14,38 @@ class SyncClientFactory {
      * Creates a SyncClient instance based on the specified protocol.
      *
      * @param protocol    the protocol to use (e.g., "datasaver")
+     * @param version     the version of the protocol to use
      * @param host        the host address to connect to
      * @param port        the port to connect on
      * @param videoPlayer the controlled video player instance to use with the client
      * @return a SyncClient implementation for the requested protocol
-     * @throws IllegalArgumentException if the protocol is not supported
+     * @throws UnsupportedSyncProtocolException if the protocol is not supported
      */
-    public static SyncClient<?> createClient(String protocol, String host, int port, PlayerManager videoPlayer) {
+    public static SyncClient<?> createClient(
+            String protocol,
+            String version,
+            String host,
+            int port,
+            PlayerManager videoPlayer
+    ) {
         switch (protocol.toLowerCase(Locale.ROOT)) {
-            case "datasaver":
+            case DataSaverClient.PROTOCOL:
+                if (!DataSaverClient.VERSION.equals(version)) {
+                    throw new UnsupportedSyncProtocolException(
+                            "Unsupported DataSaver version: " + version
+                    );
+                }
                 return new DataSaverClient(host, port, videoPlayer);
             default:
-                throw new IllegalArgumentException("Unsupported protocol: " + protocol);
+                throw new UnsupportedSyncProtocolException("Unsupported sync protocol: " + protocol);
         }
+    }
+
+    public static String protocolVersion(String protocol) {
+        if (DataSaverClient.PROTOCOL.equalsIgnoreCase(protocol)) {
+            return DataSaverClient.VERSION;
+        }
+        throw new UnsupportedSyncProtocolException("Unsupported sync protocol: " + protocol);
     }
 
 }

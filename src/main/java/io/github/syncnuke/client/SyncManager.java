@@ -1,5 +1,7 @@
 package io.github.syncnuke.client;
 
+import io.github.syncnuke.client.internal.protocol.master.MasterClient;
+import io.github.syncnuke.client.internal.protocol.master.data.ConnectData;
 import io.github.syncnuke.player.VideoPlayer;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.internal.VideoPlayerEventListener;
@@ -70,10 +72,23 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
 
         syncExecutor.submit(() -> {
             try {
+                ConnectData endpoint;
+                try (MasterClient masterClient = new MasterClient()) {
+                    endpoint = masterClient.join(
+                            server,
+                            port,
+                            protocol,
+                            // Version of the protocol supported by the current revision of this library
+                            SyncClientFactory.protocolVersion(protocol),
+                            room,
+                            password
+                    );
+                }
                 SyncClient<?> tmp = SyncClientFactory.createClient(
-                        protocol,
-                        server,
-                        port,
+                        endpoint.getProtocol(),
+                        endpoint.getVersion(),
+                        endpoint.getHost(),
+                        endpoint.getPort(),
                         playerManager
                 );
                 tmp.login(username, room, password);
