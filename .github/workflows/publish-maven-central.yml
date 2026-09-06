@@ -1,0 +1,98 @@
+name: Publish to Maven Central
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-central-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Determine release version
+        id: release
+        shell: bash
+        run: |
+          VERSION="$(
+            sed -nE \
+              "s/^version[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\1/p" \
+              build.gradle |
+            head -n 1
+          )"
+
+          if [ -z "$VERSION" ]; then
+            echo "Could not determine project version from build.gradle"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Current version: $VERSION"
+
+          # Manual runs always attempt to publish the current version.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Manual release requested."
+            exit 0
+          fi
+
+          BEFORE="${{ github.event.before }}"
+
+          BEFORE_VERSION="$(
+            git show "${BEFORE}:build.gradle" 2>/dev/null |
+            sed -nE \
+              "s/^version[[:space:]]*=[[:space:]]*['\"]([^'\"]+)['\"].*/\1/p" |
+            head -n 1
+          )"
+
+          echo "Previous version: ${BEFORE_VERSION:-unknown}"
+
+          if [ "$VERSION" = "$BEFORE_VERSION" ]; then
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "Version did not change; Maven Central publishing will be skipped."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "Version changed from '$BEFORE_VERSION' to '$VERSION'."
+          fi
+
+      - name: Build and test
+        run: ./gradlew clean check --no-daemon
+
+      - name: Publish ${{ steps.release.outputs.version }} to Maven Central
+        if: steps.release.outputs.publish == 'true'
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_CENTRAL_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_CENTRAL_SIGNING_PASSWORD }}
+        run: ./gradlew publishAndReleaseToMavenCentral --no-daemon
+
+      - name: Publishing skipped
+        if: steps.release.outputs.publish != 'true'
+        run: |
+          echo "Version ${{ steps.release.outputs.version }} is unchanged."
+          echo "Nothing will be published to Maven Central."

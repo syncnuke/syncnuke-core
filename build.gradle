@@ -3,6 +3,7 @@ plugins {
     id 'maven-publish'
     id 'signing'
     id 'com.google.protobuf' version '0.10.0'
+    id 'com.vanniktech.maven.publish' version '0.37.0'
 }
 
 group = 'io.github.syncnuke'
@@ -13,13 +14,10 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
-    options.compilerArgs.add('-Xlint:deprecation')
 }
 
 repositories {
@@ -104,44 +102,36 @@ tasks.withType(AbstractArchiveTask).configureEach {
     reproducibleFileOrder = true
 }
 
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
+mavenPublishing {
+    publishToMavenCentral()
+    signAllPublications()
 
-            pom {
-                name = 'SyncNuke Core'
-                description = project.description
-                url = 'https://github.com/syncnuke/syncnuke-core'
+    pom {
+        name = 'SyncNuke Core'
+        description = project.description
+        url = 'https://github.com/syncnuke/syncnuke-core'
 
-                licenses {
-                    license {
-                        name = 'GNU Lesser General Public License v3.0 only'
-                        url = 'https://www.gnu.org/licenses/lgpl-3.0.html'
-                        distribution = 'repo'
-                    }
-                }
-
-                developers {
-                    developer {
-                        id = 'if-shouldrs'
-                        name = 'SyncNuke maintainers'
-                        url = 'https://github.com/syncnuke'
-                    }
-                }
-
-                scm {
-                    connection = 'scm:git:https://github.com/syncnuke/syncnuke-core.git'
-                    developerConnection = 'scm:git:ssh://git@github.com/syncnuke/syncnuke-core.git'
-                    url = 'https://github.com/syncnuke/syncnuke-core'
-                }
+        licenses {
+            license {
+                name = 'GNU Lesser General Public License v3.0 only'
+                url = 'https://www.gnu.org/licenses/lgpl-3.0.html'
+                distribution = 'repo'
             }
         }
+
+        developers {
+            developer {
+                id = 'if-shouldrs'
+                name = 'SyncNuke maintainers'
+                url = 'https://github.com/syncnuke'
+            }
+        }
+
+        scm {
+            connection = 'scm:git:https://github.com/syncnuke/syncnuke-core.git'
+            developerConnection = 'scm:git:ssh://git@github.com/syncnuke/syncnuke-core.git'
+            url = 'https://github.com/syncnuke/syncnuke-core'
+        }
     }
-
 }
 
-signing {
-    useGpgCmd()
-    sign publishing.publications.mavenJava
-}
