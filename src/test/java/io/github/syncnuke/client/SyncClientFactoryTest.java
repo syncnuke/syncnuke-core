@@ -22,7 +22,7 @@ class SyncClientFactoryTest {
         UnsupportedSyncProtocolException error = assertThrows(
                 UnsupportedSyncProtocolException.class,
                 () -> SyncClientFactory.createClient(
-                        "datasaver", "1.0.0", "backend.example", 8999, null
+                        "datasaver", "1.0.0", "backend.example", 65344, null
                 )
         );
 

@@ -53,8 +53,8 @@ void main() {
     try (SyncManager syncManager = SyncManager.getInstance(player)) {
         syncManager.start(
                 "datasaver",
-                "localhost",
-                8999,
+                "master.syncnuke.com",
+                65344,
                 "alice",
                 "movie-night",
                 null

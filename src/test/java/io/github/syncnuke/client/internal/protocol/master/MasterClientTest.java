@@ -19,7 +19,7 @@ class MasterClientTest {
 
     @Test
     void joinsMasterAndReturnsEndpoint() throws Exception {
-        ConnectData endpoint = new ConnectData("backend.example", 8999, "datasaver", "0.1.0");
+        ConnectData endpoint = new ConnectData("backend.example", 65344, "datasaver", "0.1.0");
         FakeNetClient netClient = new FakeNetClient(endpoint);
         try (MasterClient client = new MasterClient(netClient)) {
             assertEquals(
