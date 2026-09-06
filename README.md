@@ -24,7 +24,7 @@ Add the following dependency to your Maven project's `pom.xml`:
 <dependency>
     <groupId>io.github.syncnuke</groupId>
     <artifactId>syncnuke-core</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
@@ -32,7 +32,7 @@ Or the following dependency to your Gradle project's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'io.github.syncnuke:syncnuke-core:0.2.0'
+    implementation 'io.github.syncnuke:syncnuke-core:0.3.0'
 }
 ```
 
