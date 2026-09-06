@@ -89,10 +89,13 @@ Current and planned projects include:
 * **[SyncNuke Android]([https://github.com/syncnuke/syncnuke-android](https://github.com/if-shouldrs/syncnuke-android))** — work-in-progress Just Player fork with SyncNuke support.
 * **Browser extension player integration** — planned support for synchronizing browser-based video playback (not created).
 
+Note: All SyncNuke connections are established through SyncNuke Master Server, located at `master.syncnuke.com:65344`.
+
+This port (`65344`) is provisional and will change before the first stable release.
+
 ## Roadmap
 
 * Implement SyncPlay protocol support.
-* Publish the source for `syncnuke-server`, the DataSaver server.
 * Support cross-protocol server synchronization.
 * Create a browser extension player integration.
 
