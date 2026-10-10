@@ -17,7 +17,7 @@ class SyncClientFactory {
      * @param version     the version of the protocol to use
      * @param host        the host address to connect to
      * @param port        the port to connect on
-     * @param videoPlayer the controlled video player instance to use with the client
+     * @param mediaPlayer the controlled media player instance to use with the client
      * @return a SyncClient implementation for the requested protocol
      * @throws UnsupportedSyncProtocolException if the protocol is not supported
      */
@@ -26,7 +26,7 @@ class SyncClientFactory {
             String version,
             String host,
             int port,
-            PlayerManager videoPlayer
+            PlayerManager mediaPlayer
     ) {
         switch (protocol.toLowerCase(Locale.ROOT)) {
             case DataSaverClient.PROTOCOL:
@@ -35,7 +35,7 @@ class SyncClientFactory {
                             "Unsupported DataSaver version: " + version
                     );
                 }
-                return new DataSaverClient(host, port, videoPlayer);
+                return new DataSaverClient(host, port, mediaPlayer);
             default:
                 throw new UnsupportedSyncProtocolException("Unsupported sync protocol: " + protocol);
         }

@@ -1,6 +1,6 @@
 package io.github.syncnuke.player.internal;
 
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.MediaPlayer;
 
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
@@ -151,9 +151,9 @@ class PlayerManagerTest {
     }
 
     @Mock
-    private VideoPlayer videoPlayer;
+    private MediaPlayer mediaPlayer;
     @Mock
-    private VideoPlayerEventListener listener;
+    private MediaPlayerEventListener listener;
 
     private FakeTimingService clock;
     private AtomicReference<PlayerState> rawStatus;
@@ -163,7 +163,7 @@ class PlayerManagerTest {
     void setUp() throws Exception {
         clock = new FakeTimingService();
         rawStatus = new AtomicReference<>(state(PlaybackState.PAUSED, 0.0, 1.0));
-        when(videoPlayer.getStatus())
+        when(mediaPlayer.getStatus())
                 .thenAnswer(invocation -> {
                     PlayerState status = rawStatus.get().copy();
                     status.setLastUpdateTime(clock.getCurrentTime());
@@ -175,7 +175,7 @@ class PlayerManagerTest {
         constructor.setAccessible(true);
         manager = constructor.newInstance(clock, 50L);
         manager.setListener(listener);
-        manager.start(videoPlayer);
+        manager.start(mediaPlayer);
     }
 
     @AfterEach
@@ -198,17 +198,17 @@ class PlayerManagerTest {
 
         assertEquals(PlaybackState.PAUSED, status.getPlaybackState());
         assertEquals(0.0, status.getPosition());
-        verify(videoPlayer, times(2)).getStatus();
+        verify(mediaPlayer, times(2)).getStatus();
         verify(listener, never()).onStatusChange(any());
     }
 
     @Test
     void polling_startsAtDefaultInterval() {
         clock.advance(49);
-        verify(videoPlayer, times(1)).getStatus();
+        verify(mediaPlayer, times(1)).getStatus();
 
         clock.advance(1);
-        verify(videoPlayer, times(2)).getStatus();
+        verify(mediaPlayer, times(2)).getStatus();
     }
 
     @Test
@@ -297,16 +297,16 @@ class PlayerManagerTest {
     void updateStatus_issuesOnlyRequiredAvailableCommands() throws Exception {
         setRawStatus(PlaybackState.PAUSED, 10.0, 1.0);
         clock.advance(1000);
-        clearInvocations(videoPlayer, listener);
+        clearInvocations(mediaPlayer, listener);
 
         PlayerState desired = state(PlaybackState.PLAYING, 20.0, 2.0);
         manager.updateStatus(desired);
 
-        verify(videoPlayer).getStatus();
-        verify(videoPlayer).play();
-        verify(videoPlayer).setPlaybackSpeed(2.0);
-        verify(videoPlayer).seek(20.0);
-        verify(videoPlayer, never()).close();
+        verify(mediaPlayer).getStatus();
+        verify(mediaPlayer).play();
+        verify(mediaPlayer).setPlaybackSpeed(2.0);
+        verify(mediaPlayer).seek(20.0);
+        verify(mediaPlayer, never()).close();
         assertEquals(PlaybackState.PAUSED,
                 manager.getStatus().getPlaybackState());
         assertEquals(10.0, manager.getStatus().getPosition());
@@ -316,15 +316,15 @@ class PlayerManagerTest {
     void updateStatus_canPauseWithoutClosingBackingPlayer() throws Exception {
         setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
         clock.advance(1000);
-        clearInvocations(videoPlayer, listener);
+        clearInvocations(mediaPlayer, listener);
 
         PlayerState desired = state(PlaybackState.PAUSED, 0.0, 1.0);
         manager.updateStatus(desired);
 
-        verify(videoPlayer).pause();
-        verify(videoPlayer, never()).play();
-        verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
-        verify(videoPlayer, never()).close();
+        verify(mediaPlayer).pause();
+        verify(mediaPlayer, never()).play();
+        verify(mediaPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
+        verify(mediaPlayer, never()).close();
     }
 
     @Test
@@ -334,49 +334,49 @@ class PlayerManagerTest {
                 .getDeclaredConstructor(TimingService.class, long.class);
         constructor.setAccessible(true);
         manager = constructor.newInstance(clock, 0L);
-        manager.start(videoPlayer);
+        manager.start(mediaPlayer);
 
         setRawStatus(PlaybackState.PLAYING, 0.0, 1.0);
-        clearInvocations(videoPlayer);
+        clearInvocations(mediaPlayer);
 
         PlayerState desired = state(PlaybackState.PAUSED, 0.0, 1.0);
         manager.updateStatus(desired);
 
-        verify(videoPlayer).getStatus();
-        verify(videoPlayer).pause();
-        verify(videoPlayer, never()).play();
+        verify(mediaPlayer).getStatus();
+        verify(mediaPlayer).pause();
+        verify(mediaPlayer, never()).play();
     }
 
     @Test
     void updateStatus_skipsCommandsWhenAlreadyAligned() throws Exception {
         PlayerState desired = state(PlaybackState.PAUSED, 0.1, 1.0);
-        clearInvocations(videoPlayer);
+        clearInvocations(mediaPlayer);
 
         manager.updateStatus(desired);
 
-        verify(videoPlayer, never()).play();
-        verify(videoPlayer, never()).pause();
-        verify(videoPlayer, never()).setPlaybackSpeed(org.mockito.ArgumentMatchers.anyDouble());
-        verify(videoPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
-        verify(videoPlayer, never()).close();
+        verify(mediaPlayer, never()).play();
+        verify(mediaPlayer, never()).pause();
+        verify(mediaPlayer, never()).setPlaybackSpeed(org.mockito.ArgumentMatchers.anyDouble());
+        verify(mediaPlayer, never()).seek(org.mockito.ArgumentMatchers.anyDouble());
+        verify(mediaPlayer, never()).close();
     }
 
     @Test
     void start_replacesPollingTaskAndClosesPreviousPlayer() throws Exception {
-        VideoPlayer replacement = org.mockito.Mockito.mock(VideoPlayer.class);
+        MediaPlayer replacement = org.mockito.Mockito.mock(MediaPlayer.class);
         when(replacement.getStatus())
                 .thenReturn(state(PlaybackState.PAUSED, 3.0, 1.0));
 
         manager.start(replacement);
 
-        verify(videoPlayer).close();
+        verify(mediaPlayer).close();
         assertEquals(1, clock.activeTaskCount());
         assertEquals(3.0, manager.getStatus().getPosition());
     }
 
     @Test
     void failedPoll_doesNotStopFuturePolls() {
-        when(videoPlayer.getStatus())
+        when(mediaPlayer.getStatus())
                 .thenThrow(new IllegalStateException("critical failure"))
                 .thenAnswer(invocation -> {
                     PlayerState status = rawStatus.get().copy();
@@ -429,7 +429,7 @@ class PlayerManagerTest {
         manager.close();
 
         assertEquals(0, clock.activeTaskCount());
-        verify(videoPlayer).close();
+        verify(mediaPlayer).close();
     }
 
     private void setRawStatus(

@@ -34,24 +34,24 @@ public class DataSaverClient extends SyncClient<BaseData> {
     /**
      * Represents the playback state, as we believe would be seen from the server's perspective.
      * Needed for filtering updates before sending to the server - but should not affect processing of received messages.
-     * This is separate from the {@link io.github.syncnuke.player.VideoPlayer}'s state, which represents
+     * This is separate from the {@link io.github.syncnuke.player.MediaPlayer}'s state, which represents
      * the local playback state.
      */
     private volatile PlayerState expectedState;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
-    public DataSaverClient(String host, int port, PlayerManager videoPlayer) {
-        this(host, port, DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS, videoPlayer);
+    public DataSaverClient(String host, int port, PlayerManager mediaPlayer) {
+        this(host, port, DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS, mediaPlayer);
     }
 
-    public DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer) {
-        this(host, port, keepAliveInterval, videoPlayer, new QuicClient<>(), new TimingServiceImpl());
+    public DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager mediaPlayer) {
+        this(host, port, keepAliveInterval, mediaPlayer, new QuicClient<>(), new TimingServiceImpl());
     }
 
-    DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager videoPlayer,
+    DataSaverClient(String host, int port, int keepAliveInterval, PlayerManager mediaPlayer,
                     NetClient<BaseData> netClient, TimingService timingService) {
-        super(keepAliveInterval, videoPlayer, timingService);
+        super(keepAliveInterval, mediaPlayer, timingService);
         this.netClient = Objects.requireNonNull(netClient, "netClient");
         connect(host, port, new BaseCodec());
     }
@@ -181,9 +181,9 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     /**
-     * Used to filter out video state updates that are too minor to trigger server notifications.
+     * Used to filter out media state updates that are too minor to trigger server notifications.
      *
-     * @param localStatus the status reported by the local video player
+     * @param localStatus the status reported by the local media player
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
     private synchronized boolean isSignificantChange(PlayerState localStatus) {

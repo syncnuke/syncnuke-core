@@ -1,6 +1,6 @@
 package io.github.syncnuke.client;
 
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.MediaPlayer;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
@@ -27,14 +27,14 @@ import static org.mockito.Mockito.when;
 class SyncManagerTest {
 
     @Mock
-    private VideoPlayer videoPlayer;
+    private MediaPlayer mediaPlayer;
 
     private SyncManager manager;
 
     @BeforeEach
     void setUp() throws Exception {
         resetSingleton();
-        when(videoPlayer.getStatus()).thenReturn(new PlayerState());
+        when(mediaPlayer.getStatus()).thenReturn(new PlayerState());
     }
 
     @AfterEach
@@ -47,10 +47,10 @@ class SyncManagerTest {
     }
 
     @Test
-    void getInstance_wrapsVideoPlayerAndRegistersInternalListener() throws Exception {
-        manager = SyncManager.getInstance(videoPlayer, 0);
+    void getInstance_wrapsMediaPlayerAndRegistersInternalListener() throws Exception {
+        manager = SyncManager.getInstance(mediaPlayer, 0);
 
-        verify(videoPlayer).getStatus();
+        verify(mediaPlayer).getStatus();
         PlayerManager playerManager = getPlayerManager(manager);
         Field listenerField = PlayerManager.class.getDeclaredField("eventListener");
         listenerField.setAccessible(true);
@@ -58,12 +58,12 @@ class SyncManagerTest {
     }
 
     @Test
-    void onStatusChange_forwardsExactSnapshotWithoutReadingVideoPlayer()
+    void onStatusChange_forwardsExactSnapshotWithoutReadingMediaPlayer()
             throws Exception {
-        manager = SyncManager.getInstance(videoPlayer, 0);
+        manager = SyncManager.getInstance(mediaPlayer, 0);
         SyncClient<?> syncClient = mock(SyncClient.class);
         setSyncClient(manager, syncClient);
-        clearInvocations(videoPlayer);
+        clearInvocations(mediaPlayer);
 
         PlayerState status = new PlayerState();
         status.setPlaybackState(PlaybackState.PLAYING);
@@ -72,7 +72,7 @@ class SyncManagerTest {
         manager.onStatusChange(status);
 
         verify(syncClient, timeout(1000)).onStatusChange(same(status));
-        verifyNoInteractions(videoPlayer);
+        verifyNoInteractions(mediaPlayer);
     }
 
     private static PlayerManager getPlayerManager(SyncManager syncManager)

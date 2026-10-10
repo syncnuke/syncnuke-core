@@ -16,7 +16,7 @@ import static org.mockito.Mockito.*;
 class SyncClientTest {
 
     @Mock
-    PlayerManager videoPlayer;
+    PlayerManager mediaPlayer;
     @Mock
     NetClient<Object> netClient;
     @Mock
@@ -28,7 +28,7 @@ class SyncClientTest {
     @BeforeEach
     void setUp() {
         timingService = new TestableTimingService();
-        client = spy(new TestableSyncClient(0, videoPlayer, netClient, timingService));
+        client = spy(new TestableSyncClient(0, mediaPlayer, netClient, timingService));
     }
 
     @Test

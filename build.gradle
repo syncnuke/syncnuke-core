@@ -8,7 +8,7 @@ plugins {
 
 group = 'io.github.syncnuke'
 version = '0.3.1'
-description = 'A library synchronizing video playback over the internet'
+description = 'A library synchronizing media playback over the internet'
 
 java {
     toolchain {

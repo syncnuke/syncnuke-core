@@ -16,9 +16,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Base class implementation for video synchronization clients. Responsibilities include:
+ * Base class implementation for media synchronization clients. Responsibilities include:
  * <ul>
- *   <li>Centralized access to the internally managed video player</li>
+ *   <li>Centralized access to the internally managed media player</li>
  *   <li>Setting up a networking client for synchronization</li>
  *   <li>Preventing time-outs through a keep-alive mechanism</li>
  * </ul>
@@ -35,12 +35,12 @@ public abstract class SyncClient<T> implements AutoCloseable {
     private ScheduledFuture<?> keepAliveTask;
     private final AtomicLong lastMessageSentTime = new AtomicLong();
 
-    protected SyncClient(int keepAliveInterval, PlayerManager videoPlayer) {
-        this(keepAliveInterval, videoPlayer, new TimingServiceImpl());
+    protected SyncClient(int keepAliveInterval, PlayerManager mediaPlayer) {
+        this(keepAliveInterval, mediaPlayer, new TimingServiceImpl());
     }
 
-    protected SyncClient(int keepAliveInterval, PlayerManager videoPlayer, TimingService timingService) {
-        this.player = videoPlayer;
+    protected SyncClient(int keepAliveInterval, PlayerManager mediaPlayer, TimingService timingService) {
+        this.player = mediaPlayer;
         this.timingService = timingService;
         startKeepAliveTask(keepAliveInterval);
     }

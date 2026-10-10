@@ -3,6 +3,6 @@ package io.github.syncnuke.player.internal;
 import io.github.syncnuke.player.data.PlayerState;
 
 @FunctionalInterface
-public interface VideoPlayerEventListener {
+public interface MediaPlayerEventListener {
     void onStatusChange(PlayerState status);
 }

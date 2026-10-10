@@ -1,7 +1,7 @@
 package io.github.syncnuke.player.internal;
 
-import io.github.syncnuke.player.NoVideoLoadedException;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.NoMediaLoadedException;
+import io.github.syncnuke.player.MediaPlayer;
 
 import io.github.syncnuke.player.data.PlaybackState;
 import io.github.syncnuke.player.data.PlayerState;
@@ -14,7 +14,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Coordinates a {@link VideoPlayer} and maintains the last confirmed player
+ * Coordinates a {@link MediaPlayer} and maintains the last confirmed player
  * status observed through polling. Filters out excessive state updates,
  * including seek drift of up to {@value #POSITION_DRIFT_TOLERANCE_SECONDS} seconds.
  */
@@ -33,8 +33,8 @@ public final class PlayerManager implements AutoCloseable {
      * Used only for polling and detecting significant changes. Not used directly for getStatus()
      */
     private PlayerState lastPlayerState = new PlayerState();
-    private VideoPlayer videoPlayer;
-    private VideoPlayerEventListener eventListener;
+    private MediaPlayer mediaPlayer;
+    private MediaPlayerEventListener eventListener;
     private ScheduledFuture<?> pollingTask;
     private boolean closed;
 
@@ -43,38 +43,38 @@ public final class PlayerManager implements AutoCloseable {
         this.pollIntervalMillis = pollIntervalMillis <= 0 ? 0 : pollIntervalMillis;
     }
 
-    public static PlayerManager create(VideoPlayer videoPlayer) {
-        return create(videoPlayer, DEFAULT_POLL_INTERVAL_MILLIS);
+    public static PlayerManager create(MediaPlayer mediaPlayer) {
+        return create(mediaPlayer, DEFAULT_POLL_INTERVAL_MILLIS);
     }
 
-    public static PlayerManager create(VideoPlayer videoPlayer, long pollIntervalMillis) {
+    public static PlayerManager create(MediaPlayer mediaPlayer, long pollIntervalMillis) {
         PlayerManager playerManager = new PlayerManager(new TimingServiceImpl(), pollIntervalMillis);
-        playerManager.start(videoPlayer);
+        playerManager.start(mediaPlayer);
         return playerManager;
     }
 
-    public void start(VideoPlayer videoPlayer) {
-        Objects.requireNonNull(videoPlayer, "videoPlayer");
+    public void start(MediaPlayer mediaPlayer) {
+        Objects.requireNonNull(mediaPlayer, "mediaPlayer");
 
         synchronized (lifecycleLock) {
             if (closed) {
                 throw new IllegalStateException("Player manager is closed.");
             }
 
-            VideoPlayer previousPlayer;
+            MediaPlayer previousPlayer;
             synchronized (stateLock) {
-                previousPlayer = this.videoPlayer;
-                this.videoPlayer = null;
+                previousPlayer = this.mediaPlayer;
+                this.mediaPlayer = null;
             }
 
             cancelPollingTask();
-            if (previousPlayer != null && previousPlayer != videoPlayer) {
+            if (previousPlayer != null && previousPlayer != mediaPlayer) {
                 closePreviousPlayer(previousPlayer);
             }
 
-            PlayerState initialStatus = observe(videoPlayer);
+            PlayerState initialStatus = observe(mediaPlayer);
             synchronized (stateLock) {
-                this.videoPlayer = videoPlayer;
+                this.mediaPlayer = mediaPlayer;
                 this.lastPlayerState = initialStatus;
             }
 
@@ -89,7 +89,7 @@ public final class PlayerManager implements AutoCloseable {
         }
     }
 
-    public void setListener(VideoPlayerEventListener eventListener) {
+    public void setListener(MediaPlayerEventListener eventListener) {
         synchronized (stateLock) {
             this.eventListener = eventListener;
         }
@@ -104,7 +104,7 @@ public final class PlayerManager implements AutoCloseable {
         PlayerState desired = copyAndValidate(desiredStatus);
 
         synchronized (lifecycleLock) {
-            VideoPlayer player = requireVideoPlayer();
+            MediaPlayer player = requireMediaPlayer();
             PlayerState current = observe(player);
 
             if (current.getPlaybackState() != desired.getPlaybackState()) {
@@ -130,26 +130,26 @@ public final class PlayerManager implements AutoCloseable {
 
     public PlayerState getStatus() {
         synchronized (lifecycleLock) {
-            return observe(requireVideoPlayer());
+            return observe(requireMediaPlayer());
         }
     }
 
     private void poll() {
         try {
-            VideoPlayer player;
+            MediaPlayer player;
             synchronized (stateLock) {
-                player = videoPlayer;
+                player = mediaPlayer;
             }
             if (player == null) {
                 return;
             }
 
             PlayerState observed = observe(player);
-            VideoPlayerEventListener listener = null;
+            MediaPlayerEventListener listener = null;
             PlayerState eventStatus = null;
 
             synchronized (stateLock) {
-                if (player != videoPlayer) {
+                if (player != mediaPlayer) {
                     return;
                 }
 
@@ -172,18 +172,18 @@ public final class PlayerManager implements AutoCloseable {
                 try {
                     listener.onStatusChange(eventStatus);
                 } catch (Throwable error) {
-                    log.error("Video player status listener failed", error);
+                    log.error("Media player status listener failed", error);
                 }
             }
-        } catch (NoVideoLoadedException ignored) {
+        } catch (NoMediaLoadedException ignored) {
             // We're not responsible for handling this, should continue polling
-            log.debug("No video is currently loaded");
+            log.debug("No media is currently loaded");
         } catch (RuntimeException error) {
             log.debug("Player status polling failure", error);
         }
     }
 
-    private PlayerState observe(VideoPlayer player) {
+    private PlayerState observe(MediaPlayer player) {
         return copyAndValidate(player.getStatus());
     }
 
@@ -238,13 +238,13 @@ public final class PlayerManager implements AutoCloseable {
         return status.getPosition() + expectedAdvance;
     }
 
-    private VideoPlayer requireVideoPlayer() {
-        VideoPlayer player;
+    private MediaPlayer requireMediaPlayer() {
+        MediaPlayer player;
         synchronized (stateLock) {
-            player = videoPlayer;
+            player = mediaPlayer;
         }
         if (player == null) {
-            throw new IllegalStateException("Video player is not initialized.");
+            throw new IllegalStateException("Media player is not initialized.");
         }
         return player;
     }
@@ -256,17 +256,17 @@ public final class PlayerManager implements AutoCloseable {
         }
     }
 
-    private void closePreviousPlayer(VideoPlayer player) {
+    private void closePreviousPlayer(MediaPlayer player) {
         try {
             player.close();
         } catch (Exception error) {
-            log.error("Error closing previous video player", error);
+            log.error("Error closing previous media player", error);
         }
     }
 
     @Override
     public void close() throws Exception {
-        VideoPlayer playerToClose;
+        MediaPlayer playerToClose;
         synchronized (lifecycleLock) {
             if (closed) {
                 return;
@@ -274,8 +274,8 @@ public final class PlayerManager implements AutoCloseable {
             closed = true;
             cancelPollingTask();
             synchronized (stateLock) {
-                playerToClose = videoPlayer;
-                videoPlayer = null;
+                playerToClose = mediaPlayer;
+                mediaPlayer = null;
                 eventListener = null;
             }
         }
