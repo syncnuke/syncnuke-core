@@ -13,9 +13,9 @@ final class TestableSyncClient extends SyncClient<Object> {
     private final AtomicInteger keepAliveCount = new AtomicInteger();
 
     TestableSyncClient(int keepAliveInterval,
-                       PlayerManager videoPlayer,
+                       PlayerManager mediaPlayer,
                        NetClient<Object> netClient, TimingService timingService) {
-        super(keepAliveInterval, videoPlayer, timingService);
+        super(keepAliveInterval, mediaPlayer, timingService);
         this.netClient = netClient;
     }
 

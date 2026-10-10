@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 class DataSaverClientTest {
 
     @Mock
-    private PlayerManager videoPlayer;
+    private PlayerManager mediaPlayer;
     @Mock
     private NetClient<BaseData> netClient;
     @Mock
@@ -50,7 +50,7 @@ class DataSaverClientTest {
     @BeforeEach
     void setUp() {
         playerStatus.set(state(PlaybackState.PAUSED, 0.0, 1.0));
-        lenient().when(videoPlayer.getStatus())
+        lenient().when(mediaPlayer.getStatus())
                 .thenAnswer(invocation -> playerStatus.get().copy());
         lenient().when(timingService.getCurrentTime())
                 .thenAnswer(invocation -> currentTime.get());
@@ -65,7 +65,7 @@ class DataSaverClientTest {
                 "localhost",
                 8080,
                 10000,
-                videoPlayer,
+                mediaPlayer,
                 netClient,
                 timingService
         );
@@ -255,11 +255,11 @@ class DataSaverClientTest {
             client.onStatusChange(expected.copy());
             verify(netClient, never()).send(any(StateData.class));
             return null;
-        }).when(videoPlayer).updateStatus(any(PlayerState.class));
+        }).when(mediaPlayer).updateStatus(any(PlayerState.class));
 
         client.handleResponse(stateData(PlaybackState.PAUSED, 10.0, 1.0));
 
-        verify(videoPlayer).updateStatus(any(PlayerState.class));
+        verify(mediaPlayer).updateStatus(any(PlayerState.class));
     }
 
     @Test
@@ -291,7 +291,7 @@ class DataSaverClientTest {
     @Test
     void serverExpectationKeepsAnOwnedSnapshot() {
         PlayerState serverStatus = state(PlaybackState.PAUSED, 10.0, 1.0);
-        when(videoPlayer.getStatus()).thenReturn(serverStatus);
+        when(mediaPlayer.getStatus()).thenReturn(serverStatus);
         client.handleResponse(stateData(PlaybackState.PAUSED, 10.0, 1.0));
 
         serverStatus.setPlaybackState(PlaybackState.PLAYING);
@@ -321,7 +321,7 @@ class DataSaverClientTest {
 
         ArgumentCaptor<PlayerState> targetCaptor =
                 ArgumentCaptor.forClass(PlayerState.class);
-        verify(videoPlayer).updateStatus(targetCaptor.capture());
+        verify(mediaPlayer).updateStatus(targetCaptor.capture());
         assertEquals(
                 PlaybackState.PLAYING,
                 targetCaptor.getValue().getPlaybackState()
@@ -345,7 +345,7 @@ class DataSaverClientTest {
 
         ArgumentCaptor<PlayerState> targetCaptor =
                 ArgumentCaptor.forClass(PlayerState.class);
-        verify(videoPlayer).updateStatus(targetCaptor.capture());
+        verify(mediaPlayer).updateStatus(targetCaptor.capture());
         PlayerState target = targetCaptor.getValue();
         assertEquals(PlaybackState.PLAYING, target.getPlaybackState());
         assertEquals(9.0, target.getPosition());
@@ -405,7 +405,7 @@ class DataSaverClientTest {
                 "localhost",
                 8080,
                 0,
-                videoPlayer,
+                mediaPlayer,
                 zeroIntervalNetClient,
                 timingService
         );

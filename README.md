@@ -1,14 +1,14 @@
 # SyncNuke Core
 
-SyncNuke is a standard for synchronizing video playback over the internet. It defines common expectations for synchronization clients and video players, allowing implementations to remain compatible without depending on a specific player or synchronization protocol.
-
-SyncNuke Core is the canonical Java implementation of the SyncNuke library contracts. It contains the common abstractions and contracts used by the SyncNuke ecosystem and separates synchronization logic, networking, and player integration so that each can be implemented independently, using the following model:
+SyncNuke Core is the canonical Java implementation of [SyncNuke](https://syncnuke.com/) standard's library. It provides the common abstractions and contracts used by the SyncNuke ecosystem and separates synchronization logic, networking, and player integration so that each can be implemented independently, using the following model:
 
 * **Sync Client abstraction** — a protocol-independent structure for synchronization clients. Different synchronization protocols can implement the same client contract and remain compatible with the rest of the SyncNuke ecosystem.
-* **Video Player interface** — a common contract for reporting playback state and controlling a video player. Player-specific integrations implement this interface outside of SyncNuke Core.
+* **Media Player interface** — a common contract for reporting playback state and controlling a media player. Player-specific integrations implement this interface outside of SyncNuke Core.
 * **Networking abstraction** — a transport-independent networking layer that keeps connection and communication details separate from synchronization logic.
 
-These abstractions are intended to make both synchronization protocols and video players interchangeable without coupling them to one another.
+These abstractions are intended to make both synchronization protocols and media players interchangeable without coupling them to one another.
+
+For more information, see the [specification](https://syncnuke.com/spec/).
 
 ## Requirements
 
@@ -24,7 +24,7 @@ Add the following dependency to your Maven project's `pom.xml`:
 <dependency>
     <groupId>io.github.syncnuke</groupId>
     <artifactId>syncnuke-core</artifactId>
-    <version>0.3.1</version>
+    <version>0.3.2</version>
 </dependency>
 ```
 
@@ -32,21 +32,21 @@ Or the following dependency to your Gradle project's `build.gradle`:
 
 ```gradle
 dependencies {
-    implementation 'io.github.syncnuke:syncnuke-core:0.3.1'
+    implementation 'io.github.syncnuke:syncnuke-core:0.3.2'
 }
 ```
 
 ### Basic usage
 
-Applications provide an implementation of `VideoPlayer`. SyncNuke Core uses that player through `SyncManager`, independently of the player implementation itself.
+Applications provide an implementation of [`MediaPlayer`](https://syncnuke.com/spec/media-player/#integration-requirements). SyncNuke Core uses that player through `SyncManager`.
 
 ```java
 import io.github.syncnuke.client.SyncManager;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.MediaPlayer;
 
 void main() {
-    // Initialize with your VideoPlayer implementation
-    VideoPlayer player;
+    // Initialize with your MediaPlayer implementation
+    MediaPlayer player;
 
     player.load("/path/to/video.mkv");
 
@@ -65,43 +65,25 @@ void main() {
 }
 ```
 
-The `SyncManager` should remain open for the lifetime of the synchronized session.
-
-## Supported Protocols
-
-### DataSaver
-
-**DataSaver** is SyncNuke's dedicated synchronization protocol.
-
-It uses connection-oriented communication to provide reliable state synchronization while minimizing the number of packets and amount of data exchanged. Its primary goals are synchronization reliability and low bandwidth usage.
-
-### SyncPlay
-
-SyncPlay support is planned for SyncNuke Core. See the [roadmap](#roadmap) for more information.
-
-## Player implementations
-
-Player integrations live in applications that depend on this library and implement the SyncNuke video player contract.
-
-Current and planned projects include:
-
-* **[SyncNuke Desktop](https://github.com/if-shouldrs/syncnuke-desktop)** — connects SyncNuke to video players running on PC.
-* **[SyncNuke Android](https://github.com/if-shouldrs/syncnuke-android)** — work-in-progress Just Player fork with SyncNuke support.
-* **Browser extension player integration** — planned support for synchronizing browser-based video playback (not created).
-
-Note: All SyncNuke connections are established through SyncNuke Master Server, located at `master.syncnuke.com:65344`.
+The `SyncManager` should remain open for the lifetime of the synchronized session. See [Lifecycle](https://syncnuke.com/spec/coordination/#lifecycle) for resource management.
 
 This port (`65344`) is provisional and will change before the first stable release.
 
+## Player implementations
+
+See the [SyncNuke download page](https://syncnuke.com/download/) for current Desktop and Android player integrations, including downloads, setup instructions, and source links. To build your own integration, follow the [Media player requirements](https://syncnuke.com/spec/media-player/#integration-requirements).
+
+## Supported Protocols
+
+See [Protocols](https://syncnuke.com/spec/protocols/#reference-behavior) in the specification for current and planned protocol support, and the [DataSaver documentation](https://syncnuke.com/spec/data-saver/) for its behavior and message format.
+
 ## Roadmap
 
-* Implement SyncPlay protocol support.
-* Support cross-protocol server synchronization.
-* Create a browser extension player integration.
+Check the [SyncNuke roadmap](https://syncnuke.com/roadmap/) for planned changes.
 
 ## Documentation
 
-Detailed documentation for the SyncNuke standard, its interfaces, and the DataSaver protocol will be maintained separately in the SyncNuke documentation, to be published soon.
+The [SyncNuke wiki](https://syncnuke.com/spec/) covers the standard, component contracts, and implementation behavior. See [Media player](https://syncnuke.com/spec/media-player/) for player integration requirements, [Sync client](https://syncnuke.com/spec/sync-client/) for synchronization client responsibilities, [Networking](https://syncnuke.com/spec/networking/) for transport and master-server details, and [Coordination](https://syncnuke.com/spec/coordination/) for how the components work together.
 
 ## License
 

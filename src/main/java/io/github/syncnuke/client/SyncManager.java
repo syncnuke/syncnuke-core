@@ -2,9 +2,9 @@ package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.protocol.master.MasterClient;
 import io.github.syncnuke.client.internal.protocol.master.data.ConnectData;
-import io.github.syncnuke.player.VideoPlayer;
+import io.github.syncnuke.player.MediaPlayer;
 import io.github.syncnuke.player.internal.PlayerManager;
-import io.github.syncnuke.player.internal.VideoPlayerEventListener;
+import io.github.syncnuke.player.internal.MediaPlayerEventListener;
 import io.github.syncnuke.player.data.PlayerState;
 import lombok.extern.slf4j.Slf4j;
 
@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
  * Wrapper class for SyncClient instances, handling instantiation and thread safety.
  */
 @Slf4j
-public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
+public class SyncManager implements MediaPlayerEventListener, AutoCloseable {
 
     private static final Object INSTANCE_LOCK = new Object();
     private static volatile SyncManager instance;
@@ -28,35 +28,35 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
 
     // Sync protocol variables
     private SyncClient<?> syncClient;
-    private final VideoPlayer videoPlayer;
+    private final MediaPlayer mediaPlayer;
     private final PlayerManager playerManager;
 
-    private SyncManager(VideoPlayer videoPlayer, PlayerManager playerManager) {
-        this.videoPlayer = videoPlayer;
+    private SyncManager(MediaPlayer mediaPlayer, PlayerManager playerManager) {
+        this.mediaPlayer = mediaPlayer;
         this.playerManager = playerManager;
     }
 
-    public static SyncManager getInstance(VideoPlayer videoPlayer) {
-        Objects.requireNonNull(videoPlayer, "videoPlayer");
-        if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
+    public static SyncManager getInstance(MediaPlayer mediaPlayer) {
+        Objects.requireNonNull(mediaPlayer, "mediaPlayer");
+        if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
             return instance;
         }
 
-        PlayerManager playerManager = PlayerManager.create(videoPlayer);
-        instance = new SyncManager(videoPlayer, playerManager);
+        PlayerManager playerManager = PlayerManager.create(mediaPlayer);
+        instance = new SyncManager(mediaPlayer, playerManager);
         playerManager.setListener(instance);
 
         return instance;
     }
 
-    public static SyncManager getInstance(VideoPlayer videoPlayer, long pollIntervalMillis) {
-        Objects.requireNonNull(videoPlayer, "videoPlayer");
-        if (instance != null && instance.videoPlayer.equals(videoPlayer)) {
+    public static SyncManager getInstance(MediaPlayer mediaPlayer, long pollIntervalMillis) {
+        Objects.requireNonNull(mediaPlayer, "mediaPlayer");
+        if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
             return instance;
         }
 
-        PlayerManager playerManager = PlayerManager.create(videoPlayer, pollIntervalMillis);
-        instance = new SyncManager(videoPlayer, playerManager);
+        PlayerManager playerManager = PlayerManager.create(mediaPlayer, pollIntervalMillis);
+        instance = new SyncManager(mediaPlayer, playerManager);
         playerManager.setListener(instance);
 
         return instance;
@@ -145,7 +145,7 @@ public class SyncManager implements VideoPlayerEventListener, AutoCloseable {
         try {
             playerManager.close();
         } catch (Exception e) {
-            log.error("Error while closing video player: {}", e.getMessage());
+            log.error("Error while closing media player: {}", e.getMessage());
         }
         synchronized (INSTANCE_LOCK) {
             if (instance == this) {

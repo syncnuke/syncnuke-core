@@ -5,7 +5,7 @@ import io.github.syncnuke.player.data.PlayerState;
 /**
  * Transport-independent view of the SyncNuke Player API.
  */
-public interface VideoPlayer extends AutoCloseable {
+public interface MediaPlayer extends AutoCloseable {
     void play();
     void pause();
     void seek(double position);
