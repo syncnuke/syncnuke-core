@@ -38,6 +38,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
      * the local playback state.
      */
     private PlayerState expectedState;
+    private boolean roomInfoReceived;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
@@ -112,6 +113,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
             List<String> updated = new ArrayList<>(users);
             updated.add(data.getUsername());
             users = updated;
+            roomInfoReceived = true;
         }
     }
 
@@ -131,13 +133,20 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void joinRoom() {
         if (username != null && room != null) {
+            roomInfoReceived = false;
             expectedState = null;
             send(new JoinData(username, room, password));
         }
     }
 
     private void handleStateUpdate(StateData data) {
+        // Server sends the existing users before initial playback state
+        roomInfoReceived = true;
         PlayerState serverStatus = getPlayerStatus();
+        if (expectedState == null && username != null && !shouldWaitForServerState()) {
+            sendState(serverStatus);
+            return;
+        }
         serverStatus.setPlaybackState(
                 data.getState() == State.PAUSED
                         ? PlaybackState.PAUSED
@@ -186,6 +195,13 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void sendState(PlayerState status) {
         try {
+            if (!roomInfoReceived) {
+                return;
+            }
+            if (shouldWaitForServerState()) {
+                pausePlayback();
+                return;
+            }
             State state = getState(status);
             StateData message = new StateData(
                     Command.UPDATE_STATE,
@@ -200,6 +216,16 @@ public class DataSaverClient extends SyncClient<BaseData> {
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
+    }
+
+    private boolean shouldWaitForServerState() {
+        return expectedState == null && users.size() > 1;
+    }
+
+    private void pausePlayback() {
+        PlayerState paused = getPlayerStatus();
+        paused.setPlaybackState(PlaybackState.PAUSED);
+        updatePlayerStatus(paused);
     }
 
     /**

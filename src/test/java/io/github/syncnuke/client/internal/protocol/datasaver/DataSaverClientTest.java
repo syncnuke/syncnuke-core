@@ -170,6 +170,80 @@ class DataSaverClientTest {
     }
 
     @Test
+    void localStateWaitsForRoomMembership() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 30.0, 1.0));
+        awaitIdle(client);
+
+        verify(netClient, never()).send(any(StateData.class));
+        verify(mediaPlayer, never()).updateStatus(any(PlayerState.class));
+    }
+
+    @Test
+    void occupiedRoomPausesAndSkipsLocalStateUntilServerStateArrives() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        receive(new JoinData("existing", "room", null));
+        playerStatus.set(state(PlaybackState.PLAYING, 30.0, 1.0));
+
+        client.onStatusChange(playerStatus.get().copy());
+        awaitIdle(client);
+
+        ArgumentCaptor<PlayerState> target = ArgumentCaptor.forClass(PlayerState.class);
+        verify(mediaPlayer).updateStatus(target.capture());
+        assertEquals(PlaybackState.PAUSED, target.getValue().getPlaybackState());
+        assertEquals(30.0, target.getValue().getPosition());
+        verify(netClient, never()).send(any(StateData.class));
+
+        clearInvocations(mediaPlayer);
+        receive(stateData(PlaybackState.PLAYING, 120.0, 1.0));
+        verify(mediaPlayer).updateStatus(target.capture());
+        assertEquals(120.0, target.getValue().getPosition());
+        verify(netClient, never()).send(any(StateData.class));
+
+        client.onStatusChange(state(PlaybackState.PAUSED, 120.0, 1.0));
+        awaitIdle(client);
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void emptyRoomPublishesLocalProgressInsteadOfApplyingServerState() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        playerStatus.set(state(PlaybackState.PLAYING, 30.0, 1.25));
+
+        receive(stateData(PlaybackState.PAUSED, 0.0, 1.0));
+
+        ArgumentCaptor<StateData> message = ArgumentCaptor.forClass(StateData.class);
+        verify(netClient).send(message.capture());
+        assertEquals(State.PLAYING, message.getValue().getState());
+        assertEquals(30.0, message.getValue().getPosition());
+        assertEquals(1.25, message.getValue().getPlaybackSpeed());
+        verify(mediaPlayer, never()).updateStatus(any(PlayerState.class));
+
+        clearInvocations(netClient);
+        client.onStatusChange(state(PlaybackState.PAUSED, 30.0, 1.25));
+        awaitIdle(client);
+        verify(netClient).send(any(StateData.class));
+    }
+
+    @Test
+    void redirectWaitsForNewRoomMembership() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        receive(stateData(PlaybackState.PAUSED, 0.0, 1.0));
+        receive(new ConnectData("next.example", 27032));
+        clearInvocations(netClient);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 30.0, 1.0));
+        awaitIdle(client);
+
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
     void keepAliveOnlyPingsBeforeServerStateIsKnown() {
         client.login("user", "room", null);
         awaitIdle(client);
