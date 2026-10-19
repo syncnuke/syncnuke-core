@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 /**
  * Wrapper class for SyncClient instances, handling instantiation and thread safety.
@@ -22,9 +23,15 @@ public class SyncManager implements MediaPlayerEventListener, AutoCloseable {
     private static volatile SyncManager instance;
 
     // Thread management variables
-    private final ExecutorService syncExecutor = Executors.newSingleThreadExecutor();
+    private final ExecutorService syncExecutor = Executors.newSingleThreadExecutor(r -> {
+        Thread thread = new Thread(r, "sync-startup");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final Object lock = new Object();
-    private volatile boolean starting = false;
+    private Future<?> startupTask;
+    private int startCount;
+    private boolean closed;
 
     // Sync protocol variables
     private SyncClient<?> syncClient;
@@ -38,86 +45,101 @@ public class SyncManager implements MediaPlayerEventListener, AutoCloseable {
 
     public static SyncManager getInstance(MediaPlayer mediaPlayer) {
         Objects.requireNonNull(mediaPlayer, "mediaPlayer");
-        if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
+        synchronized (INSTANCE_LOCK) {
+            if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
+                return instance;
+            }
+
+            PlayerManager playerManager = PlayerManager.create(mediaPlayer);
+            instance = new SyncManager(mediaPlayer, playerManager);
+            playerManager.setListener(instance);
+
             return instance;
         }
-
-        PlayerManager playerManager = PlayerManager.create(mediaPlayer);
-        instance = new SyncManager(mediaPlayer, playerManager);
-        playerManager.setListener(instance);
-
-        return instance;
     }
 
     public static SyncManager getInstance(MediaPlayer mediaPlayer, long pollIntervalMillis) {
         Objects.requireNonNull(mediaPlayer, "mediaPlayer");
-        if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
+        synchronized (INSTANCE_LOCK) {
+            if (instance != null && instance.mediaPlayer.equals(mediaPlayer)) {
+                return instance;
+            }
+            PlayerManager playerManager = PlayerManager.create(mediaPlayer, pollIntervalMillis);
+            instance = new SyncManager(mediaPlayer, playerManager);
+            playerManager.setListener(instance);
             return instance;
         }
-
-        PlayerManager playerManager = PlayerManager.create(mediaPlayer, pollIntervalMillis);
-        instance = new SyncManager(mediaPlayer, playerManager);
-        playerManager.setListener(instance);
-
-        return instance;
     }
 
     public void start(String protocol, String server, int port, String username, String room, String password) {
         synchronized (lock) {
-            if (syncClient != null || starting) {
+            if (closed || syncClient != null || startupTask != null) {
                 return;
             }
-            starting = true;
-        }
-
-        syncExecutor.submit(() -> {
-            try {
-                ConnectData endpoint;
-                try (MasterClient masterClient = new MasterClient()) {
-                    endpoint = masterClient.join(
-                            server,
-                            port,
-                            protocol,
-                            // Version of the protocol supported by the current revision of this library
-                            SyncClientFactory.protocolVersion(protocol),
-                            room,
-                            password
+            int startId = ++startCount;
+            startupTask = syncExecutor.submit(() -> {
+                SyncClient<?> client = null;
+                try {
+                    ConnectData endpoint;
+                    try (MasterClient masterClient = new MasterClient()) {
+                        endpoint = masterClient.join(
+                                server,
+                                port,
+                                protocol,
+                                // Version of the protocol supported by the current revision of this library
+                                SyncClientFactory.protocolVersion(protocol),
+                                room,
+                                password
+                        );
+                    }
+                    client = SyncClientFactory.createClient(
+                            endpoint.getProtocol(),
+                            endpoint.getVersion(),
+                            endpoint.getHost(),
+                            endpoint.getPort(),
+                            playerManager
                     );
+                    synchronized (lock) {
+                        if (closed || startId != startCount) {
+                            return;
+                        }
+                        client.login(username, room, password);
+                        syncClient = client;
+                        client = null;
+                    }
+                } catch (Exception e) {
+                    log.error("Failed to start SyncClient", e);
+                } finally {
+                    if (client != null) {
+                        client.close();
+                    }
+                    synchronized (lock) {
+                        if (startId == startCount) {
+                            startupTask = null;
+                        }
+                    }
                 }
-                SyncClient<?> tmp = SyncClientFactory.createClient(
-                        endpoint.getProtocol(),
-                        endpoint.getVersion(),
-                        endpoint.getHost(),
-                        endpoint.getPort(),
-                        playerManager
-                );
-                tmp.login(username, room, password);
-
-                synchronized (lock) {
-                    syncClient = tmp;
-                }
-            } catch (Exception e) {
-                log.error("Failed to start SyncClient", e);
-            } finally {
-                starting = false;
-            }
-        });
+            });
+        }
     }
 
     @Override
     public void onStatusChange(PlayerState status) {
-        syncExecutor.submit(() -> {
-            synchronized (lock) {
-                if (syncClient != null) {
-                    syncClient.onStatusChange(status);
-                }
+        synchronized (lock) {
+            if (syncClient != null) {
+                syncClient.onStatusChange(status);
             }
-        });
+        }
     }
 
     public void stop() {
         SyncClient<?> toClose;
         synchronized (lock) {
+            ++startCount; // Invalidate any startup still in progress
+            if (startupTask != null) {
+                startupTask.cancel(true);
+                startupTask = null;
+            }
             toClose = syncClient;
             syncClient = null;
         }
@@ -133,13 +155,15 @@ public class SyncManager implements MediaPlayerEventListener, AutoCloseable {
 
     /**
      * Stops any active sync session and shuts down the internal executor.
-     * <p>
-     * Without this, {@link #syncExecutor} (a non-daemon thread pool) would
-     * keep the JVM alive indefinitely after the rest of the application has
-     * shut down, since nothing else ever terminates it.
      */
     @Override
     public void close() {
+        synchronized (lock) {
+            if (closed) {
+                return;
+            }
+            closed = true;
+        }
         stop();
         syncExecutor.shutdownNow();
         try {

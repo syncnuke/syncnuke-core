@@ -2,6 +2,7 @@ package io.github.syncnuke.client.internal.protocol.datasaver.data;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.ToString;
 
 @Data
 @AllArgsConstructor
@@ -10,6 +11,7 @@ public class LeaveData implements BaseData {
     private Command command;
     private String username;
     private String room;
+    @ToString.Exclude
     private String password;
 
     public LeaveData(String username, String room, String password) {

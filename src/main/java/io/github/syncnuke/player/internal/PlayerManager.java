@@ -164,7 +164,7 @@ public final class PlayerManager implements AutoCloseable {
                 lastPlayerState = observed;
                 if (significantChange && eventListener != null) {
                     listener = eventListener;
-                    eventStatus = observed;
+                    eventStatus = new PlayerState(observed);
                 }
             }
 
@@ -215,6 +215,10 @@ public final class PlayerManager implements AutoCloseable {
             PlayerState observed,
             long elapsedMillis
     ) {
+        if (!Objects.equals(previous.getFileName(), observed.getFileName())
+                || Double.compare(previous.getDuration(), observed.getDuration()) != 0) {
+            return true;
+        }
         if (previous.getPlaybackState() != observed.getPlaybackState()) {
             return true;
         }

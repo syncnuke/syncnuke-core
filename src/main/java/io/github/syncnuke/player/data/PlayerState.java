@@ -16,6 +16,14 @@ public class PlayerState {
      */
     private double playbackSpeed = 1.0;
     /**
+     * Total media duration in seconds.
+     */
+    private double duration;
+    /**
+     * The name of the loaded media file.
+     */
+    private String fileName;
+    /**
      * The time when the state was last updated, in milliseconds since epoch.
      */
     private long lastUpdateTime;
@@ -28,6 +36,8 @@ public class PlayerState {
         this.playbackState = state.playbackState;
         this.position = state.position;
         this.playbackSpeed = state.playbackSpeed;
+        this.duration = state.duration;
+        this.fileName = state.fileName;
         this.lastUpdateTime = state.lastUpdateTime;
     }
 

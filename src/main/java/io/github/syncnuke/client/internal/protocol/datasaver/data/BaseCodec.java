@@ -35,7 +35,8 @@ public class BaseCodec implements Codec<BaseData> {
         bytes[1] = value.getState().getCode();
         insertDouble(bytes, 2, value.getPosition());
         insertDouble(bytes, 2 + DOUBLE_BYTES, value.getPlaybackSpeed());
-        return bytes;
+        byte[] filename = encodeOptionalString(value.getFileName());
+        return ByteBuffer.allocate(bytes.length + filename.length).put(bytes).put(filename).array();
     }
 
     private byte[] encodeJoinRoom(JoinData value) {
@@ -135,7 +136,7 @@ public class BaseCodec implements Codec<BaseData> {
         State state = State.fromCode(bytes[0]);
         double position = extractDouble(bytes, 1);
         double playbackSpeed = extractDouble(bytes, 1 + DOUBLE_BYTES);
-        return new StateData(Command.UPDATE_STATE, state, position, playbackSpeed);
+        return new StateData(Command.UPDATE_STATE, state, position, playbackSpeed, decodeOptionalString(in));
     }
 
     private JoinData decodeJoinRoom(InputStream in) throws IOException {

@@ -1,6 +1,6 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.RoomInfo;
+import io.github.syncnuke.client.data.RoomInfo;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.QuicClient;
@@ -22,14 +22,15 @@ import java.util.Objects;
 public class DataSaverClient extends SyncClient<BaseData> {
 
     public static final String PROTOCOL = "datasaver";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
     private static final int DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS = 10000;
 
     private final NetClient<BaseData> netClient;
-    private volatile String username;
-    private volatile String room;
-    private volatile String password;
-    private volatile List<String> users = Collections.emptyList();
+    private String roomFileName;
+    private String username;
+    private String room;
+    private String password;
+    private List<String> users = Collections.emptyList();
 
     /**
      * Represents the playback state, as we believe would be seen from the server's perspective.
@@ -37,7 +38,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
      * This is separate from the {@link io.github.syncnuke.player.MediaPlayer}'s state, which represents
      * the local playback state.
      */
-    private volatile PlayerState expectedState;
+    private PlayerState expectedState;
+    private boolean roomInfoReceived;
     private static final double DRIFT_THRESHOLD = 0.1; // error threshold for drift detection in %
     private static final double MIN_PROG_CHANGE = 0.5; // min progress change in seconds to trigger server notification
 
@@ -62,17 +64,21 @@ public class DataSaverClient extends SyncClient<BaseData> {
     }
 
     @Override
-    public synchronized void login(String username, String room, String password) {
-        this.username = Objects.requireNonNull(username, "username");
-        this.room = Objects.requireNonNull(room, "room");
-        this.password = password;
-        users = Collections.singletonList(username);
-        joinRoom();
+    public void login(String username, String room, String password) {
+        Objects.requireNonNull(username, "username");
+        Objects.requireNonNull(room, "room");
+        executeEvent(() -> {
+            this.username = username;
+            this.room = room;
+            this.password = password;
+            users = Collections.singletonList(username);
+            joinRoom();
+        });
     }
 
     @Override
-    public synchronized RoomInfo getRoomInfo() {
-        return new RoomInfo(room, new ArrayList<>(users));
+    public RoomInfo getRoomInfo() {
+        return readState(() -> new RoomInfo(room, new ArrayList<>(users), Collections.emptyMap(), roomFileName));
     }
 
     @Override
@@ -97,21 +103,22 @@ public class DataSaverClient extends SyncClient<BaseData> {
         if (username != null) {
             users = Collections.singletonList(username);
         }
-        netClient.connect(data.getHost(), data.getPort(), new BaseCodec());
+        reconnect(data.getHost(), data.getPort(), new BaseCodec());
         joinRoom();
     }
 
-    private synchronized void handleJoin(JoinData data) {
+    private void handleJoin(JoinData data) {
         log.debug("Command: {} User: {} Room: {}", data.getCommand(), data.getUsername(), data.getRoom());
         log.info("{} joined the room.", data.getUsername());
         if (Objects.equals(room, data.getRoom())) {
             List<String> updated = new ArrayList<>(users);
             updated.add(data.getUsername());
             users = updated;
+            roomInfoReceived = true;
         }
     }
 
-    private synchronized void handleLeave(LeaveData data) {
+    private void handleLeave(LeaveData data) {
         log.debug("Command: {} User: {} Room: {}", data.getCommand(), data.getUsername(), data.getRoom());
         log.info("{} left the room.", data.getUsername());
         if (Objects.equals(room, data.getRoom())) {
@@ -127,12 +134,22 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void joinRoom() {
         if (username != null && room != null) {
+            roomInfoReceived = false;
+            expectedState = null;
+            roomFileName = null;
             send(new JoinData(username, room, password));
         }
     }
 
     private void handleStateUpdate(StateData data) {
-        PlayerState serverStatus = getPlayer().getStatus();
+        // Server sends the existing users before initial playback state
+        roomInfoReceived = true;
+        PlayerState serverStatus = getPlayerStatus();
+        if (data.getFileName() != null) roomFileName = data.getFileName();
+        if (expectedState == null && username != null && !shouldWaitForServerState()) {
+            sendState(serverStatus);
+            return;
+        }
         serverStatus.setPlaybackState(
                 data.getState() == State.PAUSED
                         ? PlaybackState.PAUSED
@@ -142,20 +159,46 @@ public class DataSaverClient extends SyncClient<BaseData> {
         serverStatus.setPlaybackSpeed(data.getPlaybackSpeed());
 
         updateServerState(serverStatus);
-        getPlayer().updateStatus(serverStatus);
+        updatePlayerStatus(serverStatus);
+        if (fileChanged(serverStatus)) sendState(serverStatus);
     }
 
     @Override
     public void onStatusChange(PlayerState status) {
+        PlayerState snapshot = new PlayerState(status);
+        executeEvent(() -> handleStatusChange(snapshot));
+    }
+
+    private void handleStatusChange(PlayerState status) {
         log.debug("Player status event detected: {}", status);
-        if (isSignificantChange(status)) {
+        if (fileChanged(status)) {
+            sendState(status);
+            return;
+        }
+        if (matchesPendingPlayerUpdate(status)) {
+            // Reacting to our own update - ignoring...
+            return;
+        }
+        if (isSignificantChange(status, expectedState)) {
             sendState(status);
         }
     }
 
+    private boolean matchesPendingPlayerUpdate(PlayerState status) {
+        return hasPendingPlayerUpdate(target -> !isSignificantChange(status, target));
+    }
+
     @Override
     protected void sendKeepAlive() {
+        if (expectedState == null) {
+            send(new PingData());
+            return;
+        }
         sendState(PlayerStateUtils.advance(expectedState, getCurrentTime()));
+    }
+
+    private boolean fileChanged(PlayerState status) {
+        return !Objects.equals(status.getFileName(), expectedState == null ? null : expectedState.getFileName());
     }
 
     private State getState(PlayerState status) {
@@ -164,29 +207,50 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void sendState(PlayerState status) {
         try {
+            if (!roomInfoReceived) {
+                return;
+            }
+            if (shouldWaitForServerState()) {
+                pausePlayback();
+                return;
+            }
             State state = getState(status);
             StateData message = new StateData(
                     Command.UPDATE_STATE,
                     state,
                     status.getPosition(),
-                    status.getPlaybackSpeed()
+                    status.getPlaybackSpeed(),
+                    fileChanged(status) ? Objects.toString(status.getFileName(), "") : null
             );
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
-            send(message);
             updateServerState(status);
+            if (message.getFileName() != null) roomFileName = message.getFileName();
+            expectedState.setFileName(status.getFileName());
+            send(message);
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
         }
+    }
+
+    private boolean shouldWaitForServerState() {
+        return expectedState == null && users.size() > 1;
+    }
+
+    private void pausePlayback() {
+        PlayerState paused = getPlayerStatus();
+        paused.setPlaybackState(PlaybackState.PAUSED);
+        updatePlayerStatus(paused);
     }
 
     /**
      * Used to filter out media state updates that are too minor to trigger server notifications.
      *
      * @param localStatus the status reported by the local media player
+     * @param expectedState the server expectation or a pending player command
      * @return  {@code true} if the change is significant enough to notify the server, {@code false} otherwise
      */
-    private synchronized boolean isSignificantChange(PlayerState localStatus) {
+    private boolean isSignificantChange(PlayerState localStatus, PlayerState expectedState) {
         Objects.requireNonNull(localStatus, "localStatus");
         if (expectedState == null) {
             return true;
@@ -227,22 +291,18 @@ public class DataSaverClient extends SyncClient<BaseData> {
     /**
      * Records playback state expected on the server-side.
      */
-    private synchronized void updateServerState(PlayerState serverStatus) {
+    private void updateServerState(PlayerState serverStatus) {
         PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
+        // Inbound playback updates must not forget the last locally published filename.
+        expectation.setFileName(expectedState == null ? null : expectedState.getFileName());
         expectation.setLastUpdateTime(getCurrentTime());
         expectedState = expectation;
     }
 
     @Override
-    public synchronized void close() {
-        try {
-            if (username != null && room != null) {
-                send(new LeaveData(username, room, password));
-            }
-        } finally {
-            super.close();
+    protected void onClose() {
+        if (username != null && room != null) {
+            send(new LeaveData(username, room, password));
         }
     }
-
-
 }

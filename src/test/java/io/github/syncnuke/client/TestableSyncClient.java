@@ -1,5 +1,7 @@
 package io.github.syncnuke.client;
 
+import io.github.syncnuke.client.data.RoomInfo;
+
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlayerState;
@@ -37,18 +39,23 @@ final class TestableSyncClient extends SyncClient<Object> {
     @Override
     protected void handleResponse(Object data) {
         if (data instanceof PlayerState) {
-            getPlayer().updateStatus((PlayerState) data);
+            updatePlayerStatus((PlayerState) data);
         }
     }
 
     @Override
     public void onStatusChange(PlayerState localStatus) {
-        send(localStatus);
+        PlayerState snapshot = localStatus.copy();
+        executeEvent(() -> send(snapshot));
     }
 
     @Override
     protected void sendKeepAlive() {
         keepAliveCount.incrementAndGet();
+    }
+
+    @Override
+    protected void onClose() {
     }
 
 }

@@ -1,6 +1,7 @@
 package io.github.syncnuke.client;
 
 import io.github.syncnuke.client.internal.protocol.datasaver.DataSaverClient;
+import io.github.syncnuke.client.internal.protocol.syncplay.SyncplayClient;
 import io.github.syncnuke.player.internal.PlayerManager;
 
 import java.util.Locale;
@@ -36,6 +37,11 @@ class SyncClientFactory {
                     );
                 }
                 return new DataSaverClient(host, port, mediaPlayer);
+            case SyncplayClient.PROTOCOL:
+                if (!SyncplayClient.VERSION.equals(version)) {
+                    throw new UnsupportedSyncProtocolException("Unsupported Syncplay version: " + version);
+                }
+                return new SyncplayClient(host, port, mediaPlayer);
             default:
                 throw new UnsupportedSyncProtocolException("Unsupported sync protocol: " + protocol);
         }
@@ -44,6 +50,9 @@ class SyncClientFactory {
     public static String protocolVersion(String protocol) {
         if (DataSaverClient.PROTOCOL.equalsIgnoreCase(protocol)) {
             return DataSaverClient.VERSION;
+        }
+        if (SyncplayClient.PROTOCOL.equalsIgnoreCase(protocol)) {
+            return SyncplayClient.VERSION;
         }
         throw new UnsupportedSyncProtocolException("Unsupported sync protocol: " + protocol);
     }

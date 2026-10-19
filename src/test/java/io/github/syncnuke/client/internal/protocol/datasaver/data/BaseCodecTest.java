@@ -123,6 +123,19 @@ class BaseCodecTest {
         assertEquals(following, codec.decode(stream));
     }
 
+    @Test
+    void stateFilenameRoundTripsAndLeavesFollowingFramesIntact() throws IOException {
+        StateData state = new StateData(Command.UPDATE_STATE, State.PAUSED, 12.5, 1.25, "cinéma 🎬.mkv");
+        StateData unchanged = new StateData(Command.UPDATE_STATE, State.PAUSED, 12.5, 1.25);
+        InputStream stream = new ByteArrayInputStream(concatenate(codec.encode(state), codec.encode(unchanged)));
+        assertEquals(state, codec.decode(stream));
+        assertEquals(unchanged, codec.decode(stream));
+        assertEquals(19, codec.encode(unchanged).length);
+        StateData named = new StateData(Command.UPDATE_STATE, State.PAUSED, 12.5, 1.25, "movie.mkv");
+        assertEquals("020040290000000000003ff40000000000000100096d6f7669652e6d6b76",
+                java.util.HexFormat.of().formatHex(codec.encode(named)));
+    }
+
     private static byte[] concatenate(byte[] first, byte[] second) {
         byte[] result = new byte[first.length + second.length];
         System.arraycopy(first, 0, result, 0, first.length);
