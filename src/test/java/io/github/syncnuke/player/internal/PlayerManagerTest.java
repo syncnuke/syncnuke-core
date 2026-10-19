@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -281,6 +282,20 @@ class PlayerManagerTest {
 
         assertNotSame(first, second);
         assertEquals(0.0, second.getPosition());
+    }
+
+    @Test
+    void listenerCannotMutateCachedSnapshot() {
+        doAnswer(invocation -> {
+            ((PlayerState) invocation.getArgument(0)).setPosition(99.0);
+            return null;
+        }).when(listener).onStatusChange(any());
+        setRawStatus(PlaybackState.PAUSED, 12.0, 1.0);
+        clock.advance(50);
+
+        clearInvocations(listener);
+        clock.advance(50);
+        verify(listener, never()).onStatusChange(any());
     }
 
     @Test

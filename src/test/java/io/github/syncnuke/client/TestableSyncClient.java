@@ -37,13 +37,14 @@ final class TestableSyncClient extends SyncClient<Object> {
     @Override
     protected void handleResponse(Object data) {
         if (data instanceof PlayerState) {
-            getPlayer().updateStatus((PlayerState) data);
+            updatePlayerStatus((PlayerState) data);
         }
     }
 
     @Override
     public void onStatusChange(PlayerState localStatus) {
-        send(localStatus);
+        PlayerState snapshot = localStatus.copy();
+        executeEvent(() -> send(snapshot));
     }
 
     @Override

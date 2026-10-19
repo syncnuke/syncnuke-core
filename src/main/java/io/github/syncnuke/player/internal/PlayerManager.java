@@ -164,7 +164,7 @@ public final class PlayerManager implements AutoCloseable {
                 lastPlayerState = observed;
                 if (significantChange && eventListener != null) {
                     listener = eventListener;
-                    eventStatus = observed;
+                    eventStatus = new PlayerState(observed);
                 }
             }
 
