@@ -1,5 +1,7 @@
 package io.github.syncnuke.client;
 
+import io.github.syncnuke.client.data.RoomInfo;
+
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.internal.PlayerManager;
 import io.github.syncnuke.player.data.PlayerState;
@@ -50,6 +52,10 @@ final class TestableSyncClient extends SyncClient<Object> {
     @Override
     protected void sendKeepAlive() {
         keepAliveCount.incrementAndGet();
+    }
+
+    @Override
+    protected void onClose() {
     }
 
 }

@@ -1,6 +1,6 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.RoomInfo;
+import io.github.syncnuke.client.data.RoomInfo;
 import io.github.syncnuke.client.SyncClient;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.QuicClient;
@@ -22,10 +22,11 @@ import java.util.Objects;
 public class DataSaverClient extends SyncClient<BaseData> {
 
     public static final String PROTOCOL = "datasaver";
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
     private static final int DEFAULT_KEEP_ALIVE_INTERVAL_MILLIS = 10000;
 
     private final NetClient<BaseData> netClient;
+    private String roomFileName;
     private String username;
     private String room;
     private String password;
@@ -77,7 +78,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     @Override
     public RoomInfo getRoomInfo() {
-        return readState(() -> new RoomInfo(room, new ArrayList<>(users)));
+        return readState(() -> new RoomInfo(room, new ArrayList<>(users), Collections.emptyMap(), roomFileName));
     }
 
     @Override
@@ -135,6 +136,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
         if (username != null && room != null) {
             roomInfoReceived = false;
             expectedState = null;
+            roomFileName = null;
             send(new JoinData(username, room, password));
         }
     }
@@ -143,6 +145,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
         // Server sends the existing users before initial playback state
         roomInfoReceived = true;
         PlayerState serverStatus = getPlayerStatus();
+        if (data.getFileName() != null) roomFileName = data.getFileName();
         if (expectedState == null && username != null && !shouldWaitForServerState()) {
             sendState(serverStatus);
             return;
@@ -157,6 +160,7 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
         updateServerState(serverStatus);
         updatePlayerStatus(serverStatus);
+        if (fileChanged(serverStatus)) sendState(serverStatus);
     }
 
     @Override
@@ -167,6 +171,10 @@ public class DataSaverClient extends SyncClient<BaseData> {
 
     private void handleStatusChange(PlayerState status) {
         log.debug("Player status event detected: {}", status);
+        if (fileChanged(status)) {
+            sendState(status);
+            return;
+        }
         if (matchesPendingPlayerUpdate(status)) {
             // Reacting to our own update - ignoring...
             return;
@@ -189,6 +197,10 @@ public class DataSaverClient extends SyncClient<BaseData> {
         sendState(PlayerStateUtils.advance(expectedState, getCurrentTime()));
     }
 
+    private boolean fileChanged(PlayerState status) {
+        return !Objects.equals(status.getFileName(), expectedState == null ? null : expectedState.getFileName());
+    }
+
     private State getState(PlayerState status) {
         return status.getPlaybackState() == PlaybackState.PAUSED ? State.PAUSED : State.PLAYING;
     }
@@ -207,11 +219,14 @@ public class DataSaverClient extends SyncClient<BaseData> {
                     Command.UPDATE_STATE,
                     state,
                     status.getPosition(),
-                    status.getPlaybackSpeed()
+                    status.getPlaybackSpeed(),
+                    fileChanged(status) ? Objects.toString(status.getFileName(), "") : null
             );
 
             log.info("Sending state: status={}, progress={}", state, status.getPosition());
             updateServerState(status);
+            if (message.getFileName() != null) roomFileName = message.getFileName();
+            expectedState.setFileName(status.getFileName());
             send(message);
         } catch (Exception e) {
             log.error("Failed to send state: {}", e.getMessage());
@@ -278,6 +293,8 @@ public class DataSaverClient extends SyncClient<BaseData> {
      */
     private void updateServerState(PlayerState serverStatus) {
         PlayerState expectation = new PlayerState(Objects.requireNonNull(serverStatus, "serverStatus"));
+        // Inbound playback updates must not forget the last locally published filename.
+        expectation.setFileName(expectedState == null ? null : expectedState.getFileName());
         expectation.setLastUpdateTime(getCurrentTime());
         expectedState = expectation;
     }

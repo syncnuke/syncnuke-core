@@ -1,6 +1,6 @@
 package io.github.syncnuke.client.internal.protocol.datasaver;
 
-import io.github.syncnuke.client.RoomInfo;
+import io.github.syncnuke.client.data.RoomInfo;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.client.internal.net.NetListener;
 import org.junit.jupiter.api.AfterEach;
@@ -230,20 +230,6 @@ class DataSaverClientTest {
     }
 
     @Test
-    void redirectWaitsForNewRoomMembership() {
-        client.login("user", "room", null);
-        awaitIdle(client);
-        receive(stateData(PlaybackState.PAUSED, 0.0, 1.0));
-        receive(new ConnectData("next.example", 27032));
-        clearInvocations(netClient);
-
-        client.onStatusChange(state(PlaybackState.PLAYING, 30.0, 1.0));
-        awaitIdle(client);
-
-        verify(netClient, never()).send(any(StateData.class));
-    }
-
-    @Test
     void keepAliveOnlyPingsBeforeServerStateIsKnown() {
         client.login("user", "room", null);
         awaitIdle(client);
@@ -254,6 +240,20 @@ class DataSaverClientTest {
         awaitIdle(client);
 
         verify(netClient).send(any(PingData.class));
+        verify(netClient, never()).send(any(StateData.class));
+    }
+
+    @Test
+    void redirectWaitsForNewRoomMembership() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        receive(stateData(PlaybackState.PAUSED, 0.0, 1.0));
+        receive(new ConnectData("next.example", 27032));
+        clearInvocations(netClient);
+
+        client.onStatusChange(state(PlaybackState.PLAYING, 30.0, 1.0));
+        awaitIdle(client);
+
         verify(netClient, never()).send(any(StateData.class));
     }
 
@@ -799,6 +799,46 @@ class DataSaverClientTest {
         assertTrue(executor(client, "eventQueue").awaitTermination(1, TimeUnit.SECONDS));
         assertTrue(interrupted.await(2, TimeUnit.SECONDS));
         verify(netClient, timeout(1000).atLeastOnce()).close();
+    }
+
+    @Test
+    void filenameChangesUseStateAndAreOmittedFromUnchangedUpdates() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        playerStatus.get().setFileName("movie.mkv");
+        receive(stateData(PlaybackState.PAUSED, 0, 1));
+        ArgumentCaptor<StateData> capture = ArgumentCaptor.forClass(StateData.class);
+        verify(netClient).send(capture.capture());
+        assertEquals("movie.mkv", capture.getValue().getFileName());
+        clearInvocations(netClient);
+        receive(new StateData(Command.UPDATE_STATE, State.PAUSED, 0, 1, "peer.mkv"));
+        assertEquals("peer.mkv", client.getRoomInfo().getFileName());
+        verify(netClient, never()).send(any(StateData.class));
+        client.onStatusChange(playerStatus.get());
+        awaitIdle(client);
+        verify(netClient, never()).send(any(StateData.class));
+        playerStatus.get().setFileName("replacement.mkv");
+        client.onStatusChange(playerStatus.get());
+        awaitIdle(client);
+        verify(netClient).send(capture.capture());
+        assertEquals("replacement.mkv", capture.getValue().getFileName());
+        assertEquals("replacement.mkv", client.getRoomInfo().getFileName());
+        clearInvocations(netClient);
+        runEvent(client, client::sendKeepAlive);
+        awaitIdle(client);
+        verify(netClient).send(capture.capture());
+        assertEquals(null, capture.getValue().getFileName());
+    }
+
+    @Test
+    void receivedFilenameIsInformational() {
+        client.login("user", "room", null);
+        awaitIdle(client);
+        receive(new JoinData("peer", "room", null));
+        receive(new StateData(Command.UPDATE_STATE, State.PAUSED, 12, 1, "peer.mkv"));
+        assertEquals("peer.mkv", client.getRoomInfo().getFileName());
+        assertEquals(null, playerStatus.get().getFileName());
+
     }
 
     @AfterEach

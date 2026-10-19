@@ -185,6 +185,21 @@ class PlayerManagerTest {
     }
 
     @Test
+    void filenameChangesNotifyWithoutIssuingPlaybackCommands() {
+        rawStatus.get().setFileName("first.mkv");
+        rawStatus.get().setDuration(300);
+        clock.advance(50);
+        clearInvocations(listener, mediaPlayer);
+        rawStatus.get().setFileName("replacement.mkv");
+        clock.advance(50);
+        ArgumentCaptor<PlayerState> event = ArgumentCaptor.forClass(PlayerState.class);
+        verify(listener).onStatusChange(event.capture());
+        assertEquals("replacement.mkv", event.getValue().getFileName());
+        assertEquals(300, event.getValue().getDuration());
+        verify(mediaPlayer, never()).seek(any(Double.class));
+    }
+
+    @Test
     void newPlayerState_hasSafeDefaults() {
         PlayerState status = new PlayerState();
 

@@ -1,5 +1,7 @@
 package io.github.syncnuke.client;
 
+import io.github.syncnuke.client.data.RoomInfo;
+
 import io.github.syncnuke.client.internal.net.Codec;
 import io.github.syncnuke.client.internal.net.NetClient;
 import io.github.syncnuke.player.internal.PlayerManager;

@@ -13,5 +13,11 @@ public class StateData implements BaseData {
     private State state;
     private double position;
     private double playbackSpeed;
+    // Optional field to be populated when the file changes
+    private String fileName;
+
+    public StateData(Command command, State state, double position, double playbackSpeed) {
+        this(command, state, position, playbackSpeed, null);
+    }
 
 }
