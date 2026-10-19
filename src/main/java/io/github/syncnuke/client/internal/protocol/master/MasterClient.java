@@ -8,6 +8,7 @@ import io.github.syncnuke.client.internal.protocol.master.data.JoinData;
 import io.github.syncnuke.client.internal.protocol.master.data.BaseData;
 
 import java.util.Objects;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -38,7 +39,7 @@ public class MasterClient implements AutoCloseable {
                 response.complete(connect);
             }
         });
-        netClient.send(new JoinData(protocol, version, room, password));
+        netClient.send(new JoinData(protocol.toLowerCase(Locale.ROOT), version, room, password));
         ConnectData connect;
         try {
             connect = response.get();
